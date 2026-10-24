@@ -1,9 +1,14 @@
 name: Omni genuine-source gate
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'engine/loader/**'
+      - '.github/workflows/omni-genuine-source.yml'
   pull_request:
     paths:
-      - 'omnios/loader/**'
+      - 'engine/loader/**'
       - '.github/workflows/omni-genuine-source.yml'
 permissions:
   contents: read
@@ -16,19 +21,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s omnios/loader/src/main.rs
-          test -s omnios/loader/src/magic_detector.rs
-          test -s omnios/loader/src/package_inspector.rs
-          test -f omnios/loader/Cargo.toml
-          ! find omnios/loader -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.apk' \) | grep .
-          sha256sum omnios/loader/src/*.rs | tee omni-source-sha256.txt
+          test -s engine/loader/src/main.rs
+          test -s engine/loader/src/magic_detector.rs
+          test -s engine/loader/src/package_inspector.rs
+          test -f engine/loader/Cargo.toml
+          ! find engine/loader -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.apk' \) | grep .
+          sha256sum engine/loader/src/*.rs | tee omni-source-sha256.txt
       - name: Rust compiler and unit tests (not real-app certification)
         shell: bash
         run: |
           set -euo pipefail
           rustc --version
           cargo --version
-          cargo test --manifest-path omnios/loader/Cargo.toml --all-targets -- --nocapture 2>&1 | tee omni-unit-tests.log
+          cargo test --manifest-path engine/loader/Cargo.toml --all-targets -- --nocapture 2>&1 | tee omni-unit-tests.log
       - name: Preserve independent logs
         if: always()
         uses: actions/upload-artifact@v4
