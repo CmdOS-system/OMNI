@@ -1,7 +1,0 @@
-#!/bin/sh
-set -eu
-test -r /etc/nexus-os-release
-grep -q '^ID=nexus$' /etc/nexus-os-release
-systemctl -q is-active display-manager.service
-systemctl -q is-active graphical.target
-printf '%s\n' 'NEXUS_GRAPHICAL_STACK_READY_V1' > /dev/ttyS0

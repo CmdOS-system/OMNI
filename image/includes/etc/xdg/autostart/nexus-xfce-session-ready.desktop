@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus XFCE Session Readiness
-Comment=Emit test evidence after a real graphical user session starts
-Exec=/bin/sh /usr/local/libexec/nexus-xfce-session-ready
-OnlyShowIn=XFCE;
-NoDisplay=true
-X-GNOME-Autostart-enabled=true

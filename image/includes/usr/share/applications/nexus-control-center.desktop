@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus Control Center
-Comment=Configure Nexus OS and Nexus AI
-Exec=python3 /opt/nexus/control-center.py
-Icon=preferences-system
-Terminal=false
-Categories=Settings;System;

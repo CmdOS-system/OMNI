@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus Install
-Comment=Verify and install supported Windows applications
-Exec=/usr/bin/python3 /opt/nexus/agent/app_installer.py %f
-Icon=application-x-executable
-Terminal=false
-Categories=System;Utility;
-MimeType=application/vnd.microsoft.portable-executable;application/x-msdownload;application/x-ms-dos-executable;

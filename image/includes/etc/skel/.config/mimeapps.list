@@ -1,4 +1,0 @@
-[Default Applications]
-application/vnd.microsoft.portable-executable=nexus-app-install.desktop;
-application/x-msdownload=nexus-app-install.desktop;
-application/x-ms-dos-executable=nexus-app-install.desktop;

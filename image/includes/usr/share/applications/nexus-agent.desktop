@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus Agent
-Comment=Local-first AI assistant for Nexus OS
-Exec=x-terminal-emulator -e /usr/local/bin/nexus-agent
-Icon=utilities-terminal
-Terminal=false
-Categories=Utility;
-StartupNotify=true

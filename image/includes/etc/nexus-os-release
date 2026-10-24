@@ -1,8 +1,0 @@
-NAME="Nexus OS"
-ID=nexus
-ID_LIKE=debian
-VERSION="0.1-dev"
-VERSION_ID="0.1"
-PRETTY_NAME="Nexus OS 0.1 Development Preview"
-HOME_URL="https://github.com/CmdOS-system/Nexus-os"
-SUPPORT_URL="https://github.com/CmdOS-system/Nexus-os/issues"

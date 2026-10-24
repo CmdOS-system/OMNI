@@ -1,0 +1,40 @@
+name: Omni genuine-source gate
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'omnios/loader/**'
+      - '.github/workflows/omni-genuine-source.yml'
+permissions:
+  contents: read
+jobs:
+  genuine-source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check original source and absence of substituted binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s omnios/loader/src/main.rs
+          test -s omnios/loader/src/magic_detector.rs
+          test -s omnios/loader/src/package_inspector.rs
+          test -f omnios/loader/Cargo.toml
+          ! find omnios/loader -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.apk' \) | grep .
+          sha256sum omnios/loader/src/*.rs | tee omni-source-sha256.txt
+      - name: Rust compiler and unit tests (not real-app certification)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          cargo test --manifest-path omnios/loader/Cargo.toml --all-targets -- --nocapture 2>&1 | tee omni-unit-tests.log
+      - name: Preserve independent logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omni-unit-evidence
+          path: |
+            omni-source-sha256.txt
+            omni-unit-tests.log
+          if-no-files-found: warn

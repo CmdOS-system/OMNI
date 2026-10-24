@@ -1,6 +1,0 @@
-#!/bin/sh
-set -eu
-test -r /etc/nexus-os-release
-grep -q '^ID=nexus$' /etc/nexus-os-release
-test -d /run/live/medium || test -d /lib/live/mount/medium
-printf '%s\n' 'NEXUS_LIVE_BOOT_READY_V1' > /dev/ttyS0

@@ -1,20 +1,18 @@
-# Nexus OS
+# OMNI
 
-Nexus OS is an experimental Linux distribution project focused on usability, reproducible builds, secure updates, and compatibility.
+OMNI es un proyecto de investigación y desarrollo de compatibilidad de aplicaciones entre sistemas operativos. Este repositorio está dedicado exclusivamente a OMNI.
 
-## Current status
+## Estado comprobado
 
-Early development. Not certified, production-ready, or validated on physical hardware.
+- Se conserva el código histórico del analizador OmniLoader en `engine/loader/` como punto de partida; **no constituye compatibilidad certificada**.
+- El contrato de pruebas reales está en `docs/PROOF-CONTRACT.md`.
+- El workflow inicial está en `.github/workflows/omni-genuine-source.yml`. Su ejecución satisfactoria no está confirmada.
+- No hay pruebas verificadas aquí de ejecución funcional de aplicaciones de terceros.
 
-## Engineering milestones
+## Seguridad y evidencia
 
-1. Reproducible bootable ISO and signed artifact manifest.
-2. QEMU/OVMF UEFI installation and reboot integration tests.
-3. Partitioning, rollback, A/B updates, and recovery tests.
-4. Desktop shell, accessibility, localization, and graphical installer.
-5. Windows app compatibility through isolated Wine/Proton integration.
-6. Security hardening, hardware qualification, and release criteria.
+No presentar simulaciones, mocks, instaladores generados por agentes ni pruebas unitarias como ejecución auténtica de aplicaciones externas. Los estados de compatibilidad requieren evidencia independiente. Nunca ejecutar instaladores desconocidos sin aislamiento.
 
-## Safety
+## Historial
 
-Test in disposable virtual machines first. Do not install on a primary machine or overwrite disks until independently verified.
+El commit anterior de la rama principal conserva la historia del antiguo proyecto. El árbol actual contiene solamente archivos de OMNI. La migración de los prototipos Research Lab v0.1–v0.12 todavía está pendiente; no se afirma que estén integrados.

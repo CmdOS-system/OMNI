@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=Nexus Installation Preview
-Comment=Read-only disk inspection; installation is disabled
-Exec=python3 /opt/nexus/installer-preview.py
-Icon=drive-harddisk
-Terminal=false
-Categories=System;Utility;

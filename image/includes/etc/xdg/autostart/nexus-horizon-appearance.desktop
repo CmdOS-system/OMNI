@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus Horizon Appearance
-Comment=Initialize the Horizon background once for a new user session
-Exec=/bin/sh /usr/local/libexec/nexus-horizon-appearance
-OnlyShowIn=XFCE;
-Terminal=false

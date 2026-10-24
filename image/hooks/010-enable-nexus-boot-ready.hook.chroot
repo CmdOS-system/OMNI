@@ -1,6 +1,0 @@
-#!/bin/sh
-set -eu
-systemctl enable nexus-boot-ready.service
-systemctl enable nexus-graphical-ready.service
-
-systemctl enable nexus-xfce-evidence.service

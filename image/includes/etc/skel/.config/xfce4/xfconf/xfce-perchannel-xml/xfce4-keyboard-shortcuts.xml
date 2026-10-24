@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfce4-keyboard-shortcuts" version="1.0">
-  <property name="commands" type="empty">
-    <!-- XFCE initializes custom shortcuts from defaults on the first session. -->
-    <property name="default" type="empty">
-      <property name="&lt;Super&gt;space" type="string" value="/usr/local/bin/nexus-horizon"/>
-    </property>
-  </property>
-</channel>

@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus Horizon
-Comment=Search and launch applications from one place
-Exec=/usr/local/bin/nexus-horizon
-Icon=system-search
-Terminal=false
-Categories=Utility;System;

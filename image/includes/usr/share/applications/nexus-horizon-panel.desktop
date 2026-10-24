@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Nexus Horizon Panel Preview
-Comment=Optional Nexus desktop panel with app launcher and clock
-Exec=/usr/bin/python3 /opt/nexus/horizon-panel.py
-Icon=preferences-desktop
-Terminal=false
-Categories=Utility;System;

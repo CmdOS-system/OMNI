@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Launch Nexus Horizon from a keyboard shortcut without spawning duplicate windows.
-set -euo pipefail
-if command -v pgrep >/dev/null 2>&1 && pgrep -u "$(id -u)" -f '^/usr/bin/python3 /opt/nexus/horizon.py$' >/dev/null 2>&1; then
-  exit 0
-fi
-exec /usr/bin/python3 /opt/nexus/horizon.py
