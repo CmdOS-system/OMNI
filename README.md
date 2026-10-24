@@ -1,18 +1,15 @@
 # OMNI
 
-OMNI es un proyecto de investigación y desarrollo de compatibilidad de aplicaciones entre sistemas operativos. Este repositorio está dedicado exclusivamente a OMNI.
+Repositorio exclusivo del proyecto OMNI: gestor de compatibilidad multiplataforma en investigación.
 
-## Estado comprobado
+## Componentes
 
-- Se conserva el código histórico del analizador OmniLoader en `engine/loader/` como punto de partida; **no constituye compatibilidad certificada**.
-- El contrato de pruebas reales está en `docs/PROOF-CONTRACT.md`.
-- El workflow inicial está en `.github/workflows/omni-genuine-source.yml`. Su ejecución satisfactoria no está confirmada.
-- No hay pruebas verificadas aquí de ejecución funcional de aplicaciones de terceros.
+- `engine/loader/`: inspector y despachador Rust actualmente orientado a Linux.
+- `docs/PROOF-CONTRACT.md`: verificación de aplicaciones reales.
+- `docs/ARCHITECTURE.md`: arquitectura y alcance.
 
-## Seguridad y evidencia
+## Pruebas
 
-No presentar simulaciones, mocks, instaladores generados por agentes ni pruebas unitarias como ejecución auténtica de aplicaciones externas. Los estados de compatibilidad requieren evidencia independiente. Nunca ejecutar instaladores desconocidos sin aislamiento.
+`cargo test --workspace --all-targets`
 
-## Historial
-
-El commit anterior de la rama principal conserva la historia del antiguo proyecto. El árbol actual contiene solamente archivos de OMNI. La migración de los prototipos Research Lab v0.1–v0.12 todavía está pendiente; no se afirma que estén integrados.
+No se ha certificado ninguna aplicación externa. La aplicación instalable y la migración de Research Lab v0.12 siguen pendientes.

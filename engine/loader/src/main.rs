@@ -1,4 +1,4 @@
-//! Linux userspace dispatcher for Nexus. Kernel binfmt_misc passes the path to
+//! Linux userspace dispatcher for OMNI. Kernel binfmt_misc passes the path to
 //! this program; all compatibility work is delegated to installed runtimes.
 
 use std::env;
@@ -10,8 +10,8 @@ use std::process::{Command, ExitCode, Stdio};
 
 const BINFMT_REGISTER: &str = "/proc/sys/fs/binfmt_misc/register";
 const BINFMT_STATUS: &str = "/proc/sys/fs/binfmt_misc/status";
-const LOADER: &str = "/usr/bin/nexus-omniloader";
-const WAYDROID_PREFLIGHT: &str = "/usr/lib/nexus/nexus-waydroid-preflight";
+const LOADER: &str = "/usr/bin/omni-omniloader";
+const WAYDROID_PREFLIGHT: &str = "/usr/lib/omni/omni-waydroid-preflight";
 const MAX_ZIP_LISTING: usize = 8 * 1024 * 1024;
 const MAX_MANIFEST_SIZE: usize = 4 * 1024 * 1024;
 
@@ -42,17 +42,17 @@ enum Matcher {
 }
 
 const RULES: &[BinfmtRule] = &[
-    BinfmtRule { name: "nexus-pe", matcher: Matcher::Magic(b"MZ") },
-    BinfmtRule { name: "nexus-msi", matcher: Matcher::Extension("msi") },
-    BinfmtRule { name: "nexus-msi-upper", matcher: Matcher::Extension("MSI") },
-    BinfmtRule { name: "nexus-apk", matcher: Matcher::Extension("apk") },
-    BinfmtRule { name: "nexus-apk-upper", matcher: Matcher::Extension("APK") },
-    BinfmtRule { name: "nexus-dex", matcher: Matcher::Extension("dex") },
-    BinfmtRule { name: "nexus-dex-upper", matcher: Matcher::Extension("DEX") },
-    BinfmtRule { name: "nexus-macho-be", matcher: Matcher::Magic(&[0xfe, 0xed, 0xfa, 0xcf]) },
-    BinfmtRule { name: "nexus-macho-le", matcher: Matcher::Magic(&[0xcf, 0xfa, 0xed, 0xfe]) },
-    BinfmtRule { name: "nexus-wasm", matcher: Matcher::Magic(b"\0asm\x01\0\0\0") },
-    BinfmtRule { name: "nexus-crx", matcher: Matcher::Magic(b"Cr24") },
+    BinfmtRule { name: "omni-pe", matcher: Matcher::Magic(b"MZ") },
+    BinfmtRule { name: "omni-msi", matcher: Matcher::Extension("msi") },
+    BinfmtRule { name: "omni-msi-upper", matcher: Matcher::Extension("MSI") },
+    BinfmtRule { name: "omni-apk", matcher: Matcher::Extension("apk") },
+    BinfmtRule { name: "omni-apk-upper", matcher: Matcher::Extension("APK") },
+    BinfmtRule { name: "omni-dex", matcher: Matcher::Extension("dex") },
+    BinfmtRule { name: "omni-dex-upper", matcher: Matcher::Extension("DEX") },
+    BinfmtRule { name: "omni-macho-be", matcher: Matcher::Magic(&[0xfe, 0xed, 0xfa, 0xcf]) },
+    BinfmtRule { name: "omni-macho-le", matcher: Matcher::Magic(&[0xcf, 0xfa, 0xed, 0xfe]) },
+    BinfmtRule { name: "omni-wasm", matcher: Matcher::Magic(b"\0asm\x01\0\0\0") },
+    BinfmtRule { name: "omni-crx", matcher: Matcher::Magic(b"Cr24") },
 ];
 
 fn registration_bytes(rule: &BinfmtRule) -> Vec<u8> {
@@ -264,7 +264,7 @@ fn chromium_app(url: &str) -> io::Result<ExitCode> {
     }
     require_program("chromium", "abrir una PWA en ventana aislada")?;
     let profile = env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".local/share/nexus/chromium-pwa");
+        .join(".local/share/omni/chromium-pwa");
     fs::create_dir_all(&profile)?;
     run("chromium", [
         OsString::from("--no-first-run"),
@@ -277,7 +277,7 @@ fn chromium_app(url: &str) -> io::Result<ExitCode> {
 fn confirm(action: &str, path: &Path) -> io::Result<bool> {
     if command_exists("zenity") {
         return Ok(Command::new("zenity")
-            .args(["--question", "--width=520", "--title=Nexus OmniSubsystem", "--text"])
+            .args(["--question", "--width=520", "--title=OMNI OmniSubsystem", "--text"])
             .arg(format!("{action}\n\n{}", path.display()))
             .status()?
             .success());
@@ -378,12 +378,12 @@ fn dispatch(path: &Path, extra: &[OsString]) -> io::Result<ExitCode> {
             let profile = env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("/tmp"))
-                .join(".local/share/nexus/chromium-extension-preview");
+                .join(".local/share/omni/chromium-extension-preview");
             fs::create_dir_all(&profile)?;
             let instructions = format!("CRX es una extensión, no una aplicación ejecutable. Se abrirá un perfil Chromium separado. Arrastra el archivo a chrome://extensions y comprueba editor y permisos antes de aceptar la instalación.\n\n{}", absolute.display());
             if command_exists("zenity") {
                 let _ = Command::new("zenity")
-                    .args(["--info", "--width=560", "--title=Nexus OmniSubsystem", "--text"])
+                    .args(["--info", "--width=560", "--title=OMNI OmniSubsystem", "--text"])
                     .arg(&instructions)
                     .status()?;
             } else {
@@ -407,7 +407,7 @@ fn dispatch(path: &Path, extra: &[OsString]) -> io::Result<ExitCode> {
                 OsString::from("--"), absolute.into_os_string(),
             ])
         }
-        Route::NativeElf => Err(io::Error::other("ELF pertenece al kernel/loader nativo de Linux y no debe volver a encadenarse por Nexus OmniLoader.")),
+        Route::NativeElf => Err(io::Error::other("ELF pertenece al kernel/loader nativo de Linux y no debe volver a encadenarse por OMNI OmniLoader.")),
         Route::Unknown => Err(io::Error::other("Formato no reconocido o sin ruta compatible configurada; no se ejecutó el archivo.")),
     }
 }
@@ -462,7 +462,7 @@ impl OpenOptionsWrite {
 }
 
 fn usage() {
-    eprintln!("Uso: nexus-omniloader --register-binfmt | --inspect-apk ARCHIVO | --inspect-crx ARCHIVO | --webapp HTTPS_URL | ARCHIVO [ARGUMENTOS…]\n       ELF es nativo de Linux; APK/.deb requieren confirmación.");
+    eprintln!("Uso: omni-omniloader --register-binfmt | --inspect-apk ARCHIVO | --inspect-crx ARCHIVO | --webapp HTTPS_URL | ARCHIVO [ARGUMENTOS…]\n       ELF es nativo de Linux; APK/.deb requieren confirmación.");
 }
 
 fn main() -> ExitCode {
@@ -470,8 +470,8 @@ fn main() -> ExitCode {
     let Some(first) = args.next() else { usage(); return ExitCode::from(2); };
     if first == OsStr::new("--register-binfmt") {
         return match register_binfmt() {
-            Ok(()) => { println!("Nexus OmniSubsystem: reglas binfmt_misc registradas."); ExitCode::SUCCESS }
-            Err(error) => { eprintln!("nexus-omniloader: {error}"); ExitCode::FAILURE }
+            Ok(()) => { println!("OMNI OmniSubsystem: reglas binfmt_misc registradas."); ExitCode::SUCCESS }
+            Err(error) => { eprintln!("omni-omniloader: {error}"); ExitCode::FAILURE }
         };
     }
     if first == OsStr::new("--inspect-apk") || first == OsStr::new("--inspect-crx") {
@@ -482,18 +482,18 @@ fn main() -> ExitCode {
         } else {
             inspect_crx(path).map(|()| println!("CRX válido estructuralmente; la firma queda a cargo de Chromium."))
         };
-        return match result { Ok(()) => ExitCode::SUCCESS, Err(error) => { eprintln!("nexus-omniloader: {error}"); ExitCode::FAILURE } };
+        return match result { Ok(()) => ExitCode::SUCCESS, Err(error) => { eprintln!("omni-omniloader: {error}"); ExitCode::FAILURE } };
     }
     if first == OsStr::new("--webapp") {
         let Some(url) = args.next() else { usage(); return ExitCode::from(2); };
         return match url.to_str().ok_or_else(|| io::Error::other("La URL no es UTF-8.")).and_then(chromium_app) {
             Ok(code) => code,
-            Err(error) => { eprintln!("nexus-omniloader: {error}"); ExitCode::FAILURE }
+            Err(error) => { eprintln!("omni-omniloader: {error}"); ExitCode::FAILURE }
         };
     }
     match dispatch(Path::new(&first), &args.collect::<Vec<_>>()) {
         Ok(code) => code,
-        Err(error) => { eprintln!("nexus-omniloader: {error}"); ExitCode::FAILURE }
+        Err(error) => { eprintln!("omni-omniloader: {error}"); ExitCode::FAILURE }
     }
 }
 
@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn registered_rules_are_namespaced_and_point_to_this_binary() {
         assert_eq!(RULES.len(), 11);
-        assert!(RULES.iter().all(|r| r.name.starts_with("nexus-")));
+        assert!(RULES.iter().all(|r| r.name.starts_with("omni-")));
         assert!(RULES.iter().all(|r| registration_bytes(r).windows(LOADER.len()).any(|w| w == LOADER.as_bytes())));
         assert!(registration_bytes(&RULES[7]).windows(4).any(|w| w == [0xfe, 0xed, 0xfa, 0xcf]));
     }

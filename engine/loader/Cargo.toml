@@ -2,10 +2,8 @@
 name = "omni-loader"
 version = "0.1.0"
 edition = "2024"
-
 [lib]
 path = "src/lib.rs"
-
 [[bin]]
-name = "nexus-omniloader"
+name = "omni-loader"
 path = "src/main.rs"
