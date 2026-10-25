@@ -1,0 +1,35 @@
+name: OMNI Bubblewrap isolation boundary (experimental)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/bwrap_probe.py"
+      - "tests/test_bwrap_probe.py"
+      - ".github/workflows/omni-bwrap-boundary.yml"
+  workflow_dispatch:
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bubblewrap
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+      - name: Run experimental boundary probe
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m omni.bwrap_probe | tee omni-bwrap-evidence.json
+          python3 - <<'PY'
+          import json
+          with open("omni-bwrap-evidence.json") as f:
+              data = json.load(f)
+          assert data["execution_authorized"] is False
+          assert data["status"] in ("BOUNDARY_OBSERVED", "BLOCKED")
+          print("Observed boundary status:", data["status"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-bwrap-boundary-evidence
+          path: omni-bwrap-evidence.json
