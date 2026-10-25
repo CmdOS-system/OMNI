@@ -1,0 +1,29 @@
+name: OMNI real QEMU smoke (not guest boot)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  real-qemu-process:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install real QEMU from Ubuntu packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils
+      - name: Execute real QEMU with disposable blank disk
+        run: |
+          set -euo pipefail
+          python3 -m scripts.real_qemu_smoke 2>&1 | tee omni-real-qemu-smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-real-qemu-process-evidence
+          path: |
+            omni-real-qemu-smoke.log
+            omni-real-qemu-evidence/

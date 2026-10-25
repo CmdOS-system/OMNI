@@ -1,0 +1,3 @@
+# Real QEMU process smoke in GitHub Actions
+
+The separate workflow installs **real Ubuntu QEMU binaries** and creates a blank 16 MiB QCOW2 disk. It launches the real emulator using the existing opt-in capture path, waits for its timeout, and verifies the saved evidence. CI fails if the process cannot start, exits prematurely, or its evidence is inconsistent. **The disk contains no guest operating system.** This proves only real emulator-process execution, not successful guest boot, sandbox security, or third-party application compatibility. The workflow uploads a summary and hashed local attempt report; host CI logs and package supply-chain provenance are separate concerns.
