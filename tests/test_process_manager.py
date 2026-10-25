@@ -9,6 +9,23 @@ class NativeProcessManagerTests(unittest.TestCase):
         process.poll.return_value = exit_code
         return process
 
+    def test_reject_invalid_process_handles_without_creating_sessions(self):
+        manager = NativeProcessManager()
+        invalid = [
+            object(),
+            Mock(pid=None),
+            Mock(pid=0),
+            Mock(pid=-1),
+            Mock(pid=True),
+            Mock(pid="123"),
+        ]
+        for process in invalid:
+            with self.subTest(process=repr(process)):
+                with self.assertRaises(ValueError):
+                    manager.register("broken.exe", process)
+        self.assertEqual(manager.snapshot(), [])
+        self.assertEqual(manager.register("valid.exe", self.fake_process()), 1)
+
     def test_register_and_track_multiple_apps(self):
         manager = NativeProcessManager()
         a, b = self.fake_process(12), self.fake_process(13)
