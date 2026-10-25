@@ -30,6 +30,8 @@ def main():
     if not all((kernel.is_file(), busybox, qemu, cpio)):
         raise RuntimeError("real kernel, busybox, cpio, and QEMU required")
     nonce = os.urandom(16).hex()
+    left = int.from_bytes(os.urandom(2), "big")
+    right = int.from_bytes(os.urandom(2), "big")
     out = Path("omni-userspace-evidence")
     out.mkdir(exist_ok=False)
     with tempfile.TemporaryDirectory(prefix="omni-userspace-") as tmp:
@@ -44,6 +46,8 @@ def main():
             "/bin/busybox mount -t devtmpfs devtmpfs /dev 2>/dev/null || true\n"
             "/bin/busybox mount -t proc proc /proc 2>/dev/null || true\n"
             "echo 'OMNI_GUEST_USERSPACE_READY_V1 nonce=" + nonce + "' > /dev/console\n"
+            "result=$(( " + str(left) + " + " + str(right) + " ))\n"
+            "echo OMNI_GUEST_TASK_RESULT_V1 nonce=" + nonce + " value=$result > /dev/console\n"
             "/bin/busybox poweroff -f\n"
         )
         (root / "init").chmod(0o755)
@@ -71,20 +75,23 @@ def main():
                 exit_code, timeout = None, True
         data = serial.read_bytes() if serial.exists() else b""
         observed = marker_seen(data, nonce)
+        task_expected = ("OMNI_GUEST_TASK_RESULT_V1 nonce=" + nonce + " value=" + str(left + right)).encode()
+        task_observed = any(line.strip() == task_expected for line in data.splitlines())
         banner = bool(re.search(rb"Linux version [0-9]", data))
         report = {
             "schema": "omni.real_userspace_probe.v1",
-            "status": "GUEST_USERSPACE_MARKER_OBSERVED_UNATTESTED" if observed and banner else "BLOCKED",
+            "status": "GUEST_FUNCTIONAL_TASK_OBSERVED_UNATTESTED" if observed and banner and task_observed else "BLOCKED",
             "kernel_sha256": digest(kernel), "busybox_sha256": digest(busybox),
             "initramfs_sha256": digest(initrd), "serial_sha256": hashlib.sha256(data).hexdigest(),
             "serial_bytes": len(data), "nonce": nonce, "kernel_banner_observed": banner,
-            "userspace_marker_observed": observed, "qemu_exit_code": exit_code,
+            "userspace_marker_observed": observed, "functional_task_observed": task_observed,
+            "functional_task": "guest_shell_integer_addition", "qemu_exit_code": exit_code,
             "timed_out": timeout, "guest_attested": False,
             "third_party_app_executed": False, "compatibility_certified": False,
         }
     (out / "summary.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))
-    if not (observed and banner):
+    if not (observed and banner and task_observed):
         raise RuntimeError("actual guest userspace marker not observed")
 
 
