@@ -110,7 +110,7 @@ def main():
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             if messagebox.askyesno(
                 "OMNI | Catálogo dañado",
-                f"No se puede leer la biblioteca: {exc}\\n\\n"
+                f"No se puede leer la biblioteca: {exc}\n\n"
                 "¿Guardar una copia de recuperación del archivo original? "
                 "No se borrará ni se reemplazará la biblioteca."):
                 try:
