@@ -27,7 +27,7 @@ def chunk(kind: int, header: bytes, body: bytes, header_size: int | None = None)
 
 
 def axml_manifest() -> bytes:
-    strings = ["manifest", "package", "com.example.nexus.smoke"]
+    strings = ["manifest", "package", "com.example.omni.smoke"]
     encoded = bytearray()
     offsets = []
     for value in strings:
@@ -88,7 +88,7 @@ def make(output: pathlib.Path) -> None:
     wasm = wasm_command()
     (output / "wasi-exit-zero.wasm").write_bytes(wasm)
     with zipfile.ZipFile(output / "extension.zip", "w", compression=zipfile.ZIP_STORED) as archive:
-        archive.writestr("manifest.json", json.dumps({"manifest_version": 3, "name": "Nexus CI structural fixture", "version": "1.0.0"}))
+        archive.writestr("manifest.json", json.dumps({"manifest_version": 3, "name": "OMNI CI structural fixture", "version": "1.0.0"}))
     zip_bytes = (output / "extension.zip").read_bytes()
     # CRX3 envelope with empty structural protobuf fields. The fixture is
     # unsigned on purpose and therefore must never be installable.
