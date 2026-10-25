@@ -21,9 +21,12 @@ class LibraryStatusTests(unittest.TestCase):
             files[1].write_bytes(b"changed")
             files[2].unlink()
             statuses = scan_catalog_statuses(before)
-            self.assertEqual(statuses[str(files[0])], "unchanged")
-            self.assertEqual(statuses[str(files[1])], "modified")
-            self.assertEqual(statuses[str(files[2])], "missing")
+            # Windows can canonicalize the temporary folder's 8.3 path when
+            # add_inspection() calls resolve(); use the stored catalog keys.
+            by_name = {entry["name"]: statuses[entry["path"]] for entry in before}
+            self.assertEqual(by_name["same.wasm"], "unchanged")
+            self.assertEqual(by_name["changed.wasm"], "modified")
+            self.assertEqual(by_name["gone.wasm"], "missing")
             self.assertEqual(load_catalog(db), before)
 
     def test_one_failure_does_not_abort_scan(self):
