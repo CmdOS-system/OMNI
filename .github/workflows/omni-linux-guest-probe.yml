@@ -1,6 +1,8 @@
 name: OMNI real Linux guest boot (experimental)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
   contents: read
 jobs:
