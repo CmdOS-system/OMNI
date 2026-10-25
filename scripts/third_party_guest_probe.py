@@ -15,7 +15,7 @@ def dependencies(binary):
     result = subprocess.run(["ldd", str(binary)], capture_output=True, text=True, check=True)
     paths = set()
     for line in result.stdout.splitlines():
-        for match in re.findall(r"(?<![\\w])(/[^\\s()]+)", line):
+        for match in re.findall(r"(?<![\w])(/[^\s()]+)", line):
             if Path(match).is_file():
                 paths.add(match)
         if "not found" in line:
@@ -42,15 +42,19 @@ def main():
         shutil.copy2(busybox, root / "bin/busybox")
         shutil.copy2(hello, root / "usr/bin/hello")
         deps = dependencies(hello)
+        print("resolved_guest_shared_dependencies:", deps, flush=True)
         for dep in deps:
             destination = root / dep.lstrip("/")
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(dep, destination)
         # The ELF interpreter path must exist exactly as declared by PT_INTERP.
         interpreter_output = subprocess.check_output(["readelf", "-l", str(hello)], text=True)
-        match = re.search(r"Requesting program interpreter:\\s*([^]\\s]+)", interpreter_output)
+        match = re.search(r"Requesting program interpreter:\s*([^]\s]+)", interpreter_output)
+        if not match:
+            raise RuntimeError("missing ELF PT_INTERP; cannot establish dynamic loader provenance")
         if match:
             interpreter = match.group(1)
+            print("resolved_guest_elf_interpreter:", interpreter, flush=True)
             source = Path(interpreter)
             if not source.is_file():
                 raise RuntimeError("ELF interpreter missing")
