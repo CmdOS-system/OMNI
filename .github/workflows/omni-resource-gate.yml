@@ -1,0 +1,42 @@
+name: OMNI delegated cgroup resource gate (experimental)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/resource_gate.py"
+      - "tests/test_resource_gate.py"
+      - ".github/workflows/omni-resource-gate.yml"
+  workflow_dispatch:
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test resource gate fail-closed behavior
+        run: python3 -m unittest discover -s tests -p 'test_resource_gate.py' -v
+      - name: Inspect delegation and attempt probe only if writable
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          from omni.resource_gate import probe_limits
+          parent = Path('/sys/fs/cgroup/omni-delegated')
+          if parent.is_dir() and os.access(parent, os.W_OK):
+              result = probe_limits(str(parent))
+          else:
+              result = {'schema':'omni.resource_gate.v1', 'status':'NOT_DELEGATED',
+                        'limits_verified':False, 'process_placed':False,
+                        'execution_authorized':False}
+          Path('omni-resource-gate-evidence.json').write_text(json.dumps(result, indent=2))
+          print(json.dumps(result, indent=2))
+          assert result['execution_authorized'] is False
+          assert result['status'] in ('NOT_DELEGATED', 'LIMITS_AND_PLACEMENT_OBSERVED',
+                                     'BLOCKED', 'BLOCKED_CLEANUP_UNVERIFIED')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-resource-gate-evidence
+          path: omni-resource-gate-evidence.json
