@@ -1,6 +1,8 @@
 # Arquitectura OMNI
 
-OMNI no es Nexus OS. Es un gestor de compatibilidad multiplataforma.
+OMNI es un gestor de compatibilidad multiplataforma. Su código, documentación y pruebas activas deben referirse exclusivamente a OMNI.
+
+Las ejecuciones antiguas de GitHub Actions y las ramas históricas pueden conservar nombres anteriores; no representan funciones ni resultados actuales de OMNI.
 
 ## Implementado
 
