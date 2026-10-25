@@ -45,6 +45,7 @@ def main():
     from omni.wsl2_discovery import discover_wsl2
     from omni.runtime_choices import build_runtime_overview
     from omni.launch_coordinator import launch_with_recommended_runtime
+    from omni.library_health import check_catalog_integrity
     import queue
     import subprocess
     import threading
@@ -197,6 +198,7 @@ def main():
 
     wsl_results = queue.Queue()
     launch_results = queue.Queue()
+    integrity_results = queue.Queue()
     wsl_discovery = {}
     wsl_choice = tk.StringVar()
 
@@ -310,6 +312,60 @@ def main():
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             messagebox.showerror("OMNI | Ejecución", str(exc))
 
+    def poll_integrity():
+        try:
+            result = integrity_results.get_nowait()
+        except queue.Empty:
+            window.after(100, poll_integrity)
+            return
+        integrity_button.configure(state="normal")
+        try:
+            current = selected_record()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("OMNI | Integridad", str(exc))
+            return
+        # The user may have selected a different application while hashing.
+        if current is None or current["path"] != result["path"]:
+            return
+        status = result["status"]
+        descriptions = {
+            "unchanged": "Archivo sin cambios desde su registro.",
+            "modified": "Archivo modificado: vuelve a agregarlo para revisar la nueva versión.",
+            "missing": "Archivo no encontrado: comprueba si fue movido o eliminado.",
+            "unavailable": "No se puede inspeccionar este archivo de forma segura.",
+        }
+        launch_status.set(descriptions[status])
+        output.configure(state="normal")
+        output.delete("1.0", "end")
+        output.insert("1.0", json.dumps(
+            {"application": current, "integrity": result},
+            indent=2, ensure_ascii=False))
+        output.configure(state="disabled")
+
+    def verify_selected():
+        try:
+            record = selected_record()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("OMNI | Biblioteca", str(exc))
+            return
+        if record is None:
+            messagebox.showinfo("OMNI", "Selecciona primero una aplicación de la biblioteca.")
+            return
+        integrity_button.configure(state="disabled")
+        launch_status.set("Verificando archivo sin modificar la biblioteca...")
+
+        def worker():
+            try:
+                result = check_catalog_integrity(record)
+            except Exception as exc:
+                result = {"path": record["path"], "status": "unavailable",
+                          "error_type": type(exc).__name__, "changed_fields": [],
+                          "execution_performed": False}
+            integrity_results.put(result)
+
+        threading.Thread(target=worker, daemon=True).start()
+        window.after(100, poll_integrity)
+
     def remove_selected():
         selection = catalog.curselection()
         if not selection:
@@ -351,8 +407,12 @@ def main():
     launch_button.pack(side="left", padx=6)
     ttk.Button(controls, text="Forzar cierre", command=stop_selected_process).pack(side="left", padx=6)
     ttk.Button(controls, text="Ver diagnóstico", command=show_process_diagnostics).pack(side="left", padx=6)
-    wsl_button = ttk.Button(window, text="Detectar motor Linux (WSL2)", command=check_wsl2)
-    wsl_button.pack(pady=(0, 8))
+    secondary_controls = ttk.Frame(window)
+    secondary_controls.pack(pady=(0, 8))
+    integrity_button = ttk.Button(secondary_controls, text="Verificar archivo", command=verify_selected)
+    integrity_button.pack(side="left", padx=6)
+    wsl_button = ttk.Button(secondary_controls, text="Detectar motor Linux (WSL2)", command=check_wsl2)
+    wsl_button.pack(side="left", padx=6)
     wsl_selector = ttk.Combobox(window, textvariable=wsl_choice, state="readonly", width=36)
     wsl_selector.pack(pady=(0, 6))
     wsl_selector.bind("<<ComboboxSelected>>", show_selected)
