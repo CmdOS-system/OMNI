@@ -3,6 +3,7 @@
 No file contents are executed. The caller must separately authorize execution.
 """
 import hashlib
+import errno
 import json
 import os
 import stat
@@ -18,7 +19,12 @@ def inspect_file(path):
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
     if not hasattr(os, "O_NOFOLLOW"):
         raise RuntimeError("secure no-follow file opening unsupported on this host")
-    fd = os.open(path, flags | os.O_NOFOLLOW)
+    try:
+        fd = os.open(path, flags | os.O_NOFOLLOW)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise ValueError("symbolic links are not accepted") from exc
+        raise
     try:
         metadata = os.fstat(fd)
         if not stat.S_ISREG(metadata.st_mode):
@@ -99,7 +105,8 @@ def plan(path, *, host_system=None, host_arch=None, which=shutil.which):
         if name == "wine" and detected["architecture"] not in ("x86", "x86_64"):
             eligible = False
             reasons.append("wine_architecture_unsupported_by_current_adapter")
-        options.append({"runtime": name, "available": bool(found), "eligible_for_execution": eligible, "eligible_for_preflight": bool(found) and detected["validated"],
+        preflight = detected["validated"] and bool(found) and not any(reason in reasons for reason in ("host_architecture_mismatch", "guest_architecture_not_configured", "wine_architecture_unsupported_by_current_adapter"))
+        options.append({"runtime": name, "available": bool(found), "eligible_for_execution": eligible, "eligible_for_preflight": preflight,
                         "reasons": reasons})
     return {"schema": "omni.capability_plan.v1", "input": detected,
             "host": {"system": system, "architecture": arch},

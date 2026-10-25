@@ -52,7 +52,7 @@ class PlannerTests(unittest.TestCase):
         header = bytearray(512)
         header[:2] = b"MZ"
         header[0x3c:0x40] = (128).to_bytes(4, "little")
-        header[128:132] = b"PE\\0\\0"
+        header[128:132] = b"PE\0\0"
         header[132:134] = (0x8664).to_bytes(2, "little")
         header[148:150] = (2).to_bytes(2, "little")
         header[152:154] = (0x20b).to_bytes(2, "little")
@@ -64,7 +64,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_qemu_installed_does_not_authorize_execution(self):
         header = bytearray(64)
-        header[:6] = b"\\x7fELF\\x02\\x01"
+        header[:6] = b"\x7fELF\x02\x01"
         header[6] = 1
         header[18:20] = (62).to_bytes(2, "little")
         result = plan(self.write(header), host_system="Linux", host_arch="x86_64",
