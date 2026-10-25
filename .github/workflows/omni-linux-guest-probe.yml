@@ -16,7 +16,17 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends qemu-system-x86 linux-image-virtual
-      - name: Stage readable guest kernel and initramfs with provenance\n        run: |\n          set -euo pipefail\n          sudo install -d -m 0755 /tmp/omni-guest-boot\n          kernel=$(readlink -f /boot/vmlinuz)\n          initrd=$(readlink -f /boot/initrd.img)\n          sudo install -m 0644 "$kernel" /tmp/omni-guest-boot/vmlinuz\n          sudo install -m 0644 "$initrd" /tmp/omni-guest-boot/initrd.img\n          sha256sum /tmp/omni-guest-boot/vmlinuz /tmp/omni-guest-boot/initrd.img\n      - name: Run actual guest boot probe\n        run: |
+      - name: Stage readable guest kernel and initramfs with provenance
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /tmp/omni-guest-boot
+          kernel=$(readlink -f /boot/vmlinuz)
+          initrd=$(readlink -f /boot/initrd.img)
+          sudo install -m 0644 "$kernel" /tmp/omni-guest-boot/vmlinuz
+          sudo install -m 0644 "$initrd" /tmp/omni-guest-boot/initrd.img
+          sha256sum /tmp/omni-guest-boot/vmlinuz /tmp/omni-guest-boot/initrd.img
+      - name: Run actual guest boot probe
+        run: |
           set -euo pipefail
           python3 -m scripts.linux_guest_probe 2>&1 | tee omni-linux-guest-probe.log
       - uses: actions/upload-artifact@v4
