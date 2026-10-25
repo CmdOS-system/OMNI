@@ -40,6 +40,7 @@ def inspect_preview(path):
 
 
 def main():
+    from omni.catalog import add_inspection, load_catalog, remove_inspection
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
     window = tk.Tk()
@@ -59,6 +60,29 @@ def main():
                   "Esta versión no ejecuta aplicaciones ni modifica tu sistema.")
     output.configure(state="disabled")
 
+    catalog = tk.Listbox(window, bg="#182437", fg="#E2E8F0", selectbackground="#2563EB",
+                         height=6, relief="flat", font=("Segoe UI", 10))
+    catalog.pack(fill="x", padx=30, pady=(0, 10))
+
+    def refresh_catalog():
+        catalog.delete(0, "end")
+        try:
+            for item in load_catalog():
+                catalog.insert("end", f'{item["name"]}  ·  {item["format"]}  ·  {item["architecture"]}')
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showwarning("OMNI | Catálogo", str(exc))
+
+    def remove_selected():
+        selection = catalog.curselection()
+        if not selection:
+            return
+        try:
+            items = load_catalog()
+            remove_inspection(items[selection[0]]["path"])
+            refresh_catalog()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("OMNI | Catálogo", str(exc))
+
     def choose():
         filename = filedialog.askopenfilename(title="Seleccionar archivo para analizar")
         if not filename:
@@ -68,12 +92,21 @@ def main():
         except (OSError, ValueError) as exc:
             messagebox.showerror("OMNI | Inspección fallida", str(exc))
             return
+        try:
+            add_inspection(filename, data)
+            refresh_catalog()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showwarning("OMNI | Catálogo", str(exc))
         output.configure(state="normal")
         output.delete("1.0", "end")
         output.insert("1.0", json.dumps(data, indent=2, ensure_ascii=False))
         output.configure(state="disabled")
 
-    ttk.Button(window, text="Seleccionar archivo", command=choose).pack(pady=(0, 25))
+    controls = ttk.Frame(window)
+    controls.pack(pady=(0, 18))
+    ttk.Button(controls, text="Seleccionar archivo", command=choose).pack(side="left", padx=6)
+    ttk.Button(controls, text="Quitar de biblioteca", command=remove_selected).pack(side="left", padx=6)
+    refresh_catalog()
     window.mainloop()
 
 
