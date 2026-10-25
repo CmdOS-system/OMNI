@@ -43,12 +43,14 @@ def backup_catalog(path=None):
     for index in range(1, 1001):
         backup = path.with_name(f"{path.name}.backup-{index:04d}")
         try:
-            with backup.open("xb") as destination:
+            destination = backup.open("xb")
+        except FileExistsError:
+            continue
+        try:
+            with destination:
                 with path.open("rb") as source:
                     shutil.copyfileobj(source, destination)
             return backup
-        except FileExistsError:
-            continue
         except Exception:
             backup.unlink(missing_ok=True)
             raise
