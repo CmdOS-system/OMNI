@@ -31,6 +31,7 @@ class PlannerTests(unittest.TestCase):
         result = plan(self.write(header), host_system="Linux", host_arch="x86_64", which=lambda _: None)
         self.assertEqual(result["input"]["architecture"], "x86_64")
         self.assertTrue(next(o for o in result["options"] if o["runtime"] == "linux-native")["eligible_for_preflight"])
+        self.assertFalse(next(o for o in result["options"] if o["runtime"] == "linux-native")["eligible_for_execution"])
         self.assertFalse(result["execution_performed"])
 
     def test_mismatched_native_architecture(self):
@@ -46,6 +47,30 @@ class PlannerTests(unittest.TestCase):
         result = plan(self.write(b"not executable"), host_system="Linux", which=lambda _: "/bin/true")
         self.assertEqual(result["options"], [])
         self.assertFalse(result["execution_authorized"])
+
+    def test_wine_installed_does_not_authorize_execution(self):
+        header = bytearray(512)
+        header[:2] = b"MZ"
+        header[0x3c:0x40] = (128).to_bytes(4, "little")
+        header[128:132] = b"PE\\0\\0"
+        header[132:134] = (0x8664).to_bytes(2, "little")
+        header[148:150] = (2).to_bytes(2, "little")
+        header[152:154] = (0x20b).to_bytes(2, "little")
+        result = plan(self.write(header), host_system="Linux", which=lambda _: "/usr/bin/wine")
+        wine = next(o for o in result["options"] if o["runtime"] == "wine")
+        self.assertTrue(wine["available"])
+        self.assertFalse(wine["eligible_for_execution"])
+        self.assertIn("isolated_wine_adapter_not_configured", wine["reasons"])
+
+    def test_qemu_installed_does_not_authorize_execution(self):
+        header = bytearray(64)
+        header[:6] = b"\\x7fELF\\x02\\x01"
+        header[6] = 1
+        header[18:20] = (62).to_bytes(2, "little")
+        result = plan(self.write(header), host_system="Linux", host_arch="x86_64",
+                      which=lambda _: "/usr/bin/qemu-system-x86_64")
+        qemu = next(o for o in result["options"] if o["runtime"] == "qemu-system-x86_64")
+        self.assertFalse(qemu["eligible_for_execution"])
 
     def test_symlink_rejected(self):
         real = Path(self.temp.name) / "real"

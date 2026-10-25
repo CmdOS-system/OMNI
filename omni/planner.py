@@ -4,6 +4,8 @@ No file contents are executed. The caller must separately authorize execution.
 """
 import hashlib
 import json
+import os
+import stat
 from pathlib import Path
 import shutil
 import struct
@@ -12,16 +14,25 @@ MAX_INSPECT_BYTES = 4096
 
 def inspect_file(path):
     path = Path(path)
-    if path.is_symlink() or not path.is_file():
-        raise ValueError("input must be a regular, non-symlink file")
-    with path.open("rb") as stream:
-        head = stream.read(MAX_INSPECT_BYTES)
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    info = {"format": "UNKNOWN", "architecture": "UNKNOWN", "validated": False,
-            "sha256": digest.hexdigest(), "size": path.stat().st_size}
+    # Inspect through one no-follow descriptor: no path re-open between hash and header.
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise RuntimeError("secure no-follow file opening unsupported on this host")
+    fd = os.open(path, flags | os.O_NOFOLLOW)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError("input must be a regular file")
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            head = stream.read(MAX_INSPECT_BYTES)
+            digest = hashlib.sha256()
+            digest.update(head)
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        info = {"format": "UNKNOWN", "architecture": "UNKNOWN", "validated": False,
+                "sha256": digest.hexdigest(), "size": metadata.st_size}
+    finally:
+        os.close(fd)
     if len(head) >= 20 and head[:4] == b"\x7fELF":
         endian = "<" if head[5] == 1 else ">" if head[5] == 2 else None
         if head[4] in (1, 2) and endian is not None and head[6] == 1:
@@ -70,13 +81,25 @@ def plan(path, *, host_system=None, host_arch=None, which=shutil.which):
         if name == "qemu-system-x86_64" and detected["architecture"] != "x86_64":
             eligible = False
             reasons.append("guest_architecture_not_configured")
+        if name == "qemu-system-x86_64":
+            eligible = False
+            reasons.append("verified_guest_image_and_isolation_not_configured")
+        if name == "wine":
+            eligible = False
+            reasons.append("isolated_wine_adapter_not_configured")
+        if name == "linux-native":
+            eligible = False
+            reasons.append("native_execution_requires_explicit_sandbox_policy")
+        if name == "wasmtime":
+            eligible = False
+            reasons.append("wasi_permissions_and_limits_not_configured")
         if name == "proton":
             eligible = False
             reasons.append("proton_requires_explicit_runtime_adapter")
         if name == "wine" and detected["architecture"] not in ("x86", "x86_64"):
             eligible = False
             reasons.append("wine_architecture_unsupported_by_current_adapter")
-        options.append({"runtime": name, "available": bool(found), "eligible_for_preflight": eligible,
+        options.append({"runtime": name, "available": bool(found), "eligible_for_execution": eligible, "eligible_for_preflight": bool(found) and detected["validated"],
                         "reasons": reasons})
     return {"schema": "omni.capability_plan.v1", "input": detected,
             "host": {"system": system, "architecture": arch},
