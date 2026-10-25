@@ -170,7 +170,7 @@ def main():
             return
         consent = messagebox.askyesno(
             "OMNI | Forzar cierre",
-            f'¿Forzar el cierre de {row["name"]} (PID {row["pid"]})?\\n\\n'
+            f'¿Forzar el cierre de {row["name"]} (PID {row["pid"]})?\n\n'
             "Se perderán los cambios no guardados. Solo se finalizará el proceso "
             "directo; sus procesos secundarios podrían seguir abiertos.")
         if not consent:
