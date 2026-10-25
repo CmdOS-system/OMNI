@@ -27,7 +27,16 @@ def assess_third_party(data, nonce, qemu_exit_code, timed_out):
     lines = {line.strip() for line in data.splitlines()}
     begin = ("OMNI_THIRD_PARTY_BEGIN_V1 nonce=" + nonce).encode() in lines
     exit_ok = ("OMNI_THIRD_PARTY_EXIT_V1 nonce=" + nonce + " code=0").encode() in lines
-    output = b"Hello, world!" in lines
+    # Require exact output framed by the guest, not incidental kernel text.
+    output_begin = ("OMNI_HELLO_OUTPUT_BEGIN nonce=" + nonce).encode()
+    output_end = ("OMNI_HELLO_OUTPUT_END nonce=" + nonce).encode()
+    output = False
+    for segment in data.split(output_begin)[1:]:
+        if output_end in segment:
+            payload = segment.split(output_end, 1)[0]
+            output = b"Hello, world!" in {line.strip() for line in payload.splitlines()}
+            if output:
+                break
     banner = bool(re.search(rb"Linux version [0-9]", data))
     panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
     passed = all((begin, exit_ok, output, banner)) and not panic and not timed_out and qemu_exit_code == 0
@@ -81,8 +90,8 @@ def main():
         (root / "init").write_text(
             "#!/bin/busybox sh\n"
             "echo OMNI_THIRD_PARTY_BEGIN_V1 nonce=" + nonce + " > /dev/console\n"
-            "/usr/bin/hello > /dev/console 2>&1\n"
-            "rc=$?\n"
+            "/usr/bin/hello > /hello.stdout 2>/hello.stderr\n"
+            "rc=$?\n"\n            "echo OMNI_HELLO_OUTPUT_BEGIN nonce=" + nonce + " > /dev/console\n"\n            "/bin/busybox cat /hello.stdout > /dev/console\n"\n            "echo OMNI_HELLO_OUTPUT_END nonce=" + nonce + " > /dev/console\n"\n            "/bin/busybox cat /hello.stderr > /dev/console\n"
             "echo OMNI_THIRD_PARTY_EXIT_V1 nonce=" + nonce + " code=$rc > /dev/console\n"
             "/bin/busybox poweroff -f\n"
         )
@@ -122,6 +131,7 @@ def main():
     (out / "summary.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))
     if not success:
+        print("guest_serial_tail:", repr(data[-2400:]), flush=True)
         raise RuntimeError("real third-party GNU hello execution not proven")
 
 if __name__ == "__main__":

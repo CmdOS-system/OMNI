@@ -15,6 +15,10 @@ class ThirdPartyGuestGateTests(unittest.TestCase):
     def test_success(self):
         self.assertEqual(self.check(), "THIRD_PARTY_GNU_HELLO_EXECUTED_UNATTESTED")
 
+    def test_unframed_hello_is_rejected(self):
+        self.assertEqual(self.check(data=self.serial.replace(b"OMNI_HELLO_OUTPUT_BEGIN nonce=abc\
+", b"")), "BLOCKED")
+
     def test_wrong_nonce(self):
         self.assertEqual(self.check(nonce="xyz"), "BLOCKED")
 
