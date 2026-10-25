@@ -22,6 +22,23 @@ def dependencies(binary):
             raise RuntimeError("missing shared dependency: " + line)
     return sorted(paths)
 
+def assess_third_party(data, nonce, qemu_exit_code, timed_out):
+    """Require challenge-bound markers and genuine GNU Hello output."""
+    lines = {line.strip() for line in data.splitlines()}
+    begin = ("OMNI_THIRD_PARTY_BEGIN_V1 nonce=" + nonce).encode() in lines
+    exit_ok = ("OMNI_THIRD_PARTY_EXIT_V1 nonce=" + nonce + " code=0").encode() in lines
+    output = b"Hello, world!" in lines
+    banner = bool(re.search(rb"Linux version [0-9]", data))
+    panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
+    passed = all((begin, exit_ok, output, banner)) and not panic and not timed_out and qemu_exit_code == 0
+    return {
+        "begin_observed": begin, "exit_zero_observed": exit_ok,
+        "expected_output_observed": output, "kernel_banner_observed": banner,
+        "kernel_panic_observed": panic,
+        "status": "THIRD_PARTY_GNU_HELLO_EXECUTED_UNATTESTED" if passed else "BLOCKED",
+    }
+
+
 def main():
     kernel = Path("/tmp/omni-guest-boot/vmlinuz")
     hello = Path("/usr/bin/hello")
@@ -90,22 +107,15 @@ def main():
             except subprocess.TimeoutExpired:
                 rc, timeout = None, True
         data = serial.read_bytes() if serial.exists() else b""
-        lines = {line.strip() for line in data.splitlines()}
-        begin = ("OMNI_THIRD_PARTY_BEGIN_V1 nonce=" + nonce).encode() in lines
-        exit_ok = ("OMNI_THIRD_PARTY_EXIT_V1 nonce=" + nonce + " code=0").encode() in lines
-        hello_ok = b"Hello, world!" in lines
-        kernel_ok = bool(re.search(rb"Linux version [0-9]", data))
-        panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
-        success = all((begin, exit_ok, hello_ok, kernel_ok)) and not panic and not timeout and rc == 0
+        checks = assess_third_party(data, nonce, rc, timeout)
+        success = checks["status"] != "BLOCKED"
         report = {
             "schema": "omni.third_party_guest.v1",
-            "status": "THIRD_PARTY_GNU_HELLO_EXECUTED_UNATTESTED" if success else "BLOCKED",
+            "status": checks["status"],
             "package": package, "binary_sha256": digest(hello), "kernel_sha256": digest(kernel),
             "initramfs_sha256": digest(archive), "serial_sha256": hashlib.sha256(data).hexdigest(),
             "dependencies_sha256": {path: digest(path) for path in deps},
-            "nonce": nonce, "begin_observed": begin, "exit_zero_observed": exit_ok,
-            "expected_output_observed": hello_ok, "kernel_banner_observed": kernel_ok,
-            "kernel_panic_observed": panic, "qemu_exit_code": rc, "timed_out": timeout,
+            "nonce": nonce, **checks, "qemu_exit_code": rc, "timed_out": timeout,
             "third_party_app_executed": success, "guest_attested": False,
             "compatibility_certified": False, "windows_app_executed": False,
         }
