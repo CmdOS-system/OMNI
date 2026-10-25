@@ -12,6 +12,9 @@ on:
       - "omni/process_manager.py"
       - "omni/wsl2_discovery.py"
       - "omni/wsl2_runtime.py"
+      - "omni/runtime_choices.py"
+      - "tests/test_runtime_choices.py"
+      - "tests/test_windows_native_smoke.py"
       - "tests/test_wsl2_runtime.py"
       - "tests/test_wsl2_discovery.py"
       - "tests/test_process_manager.py"
@@ -37,6 +40,10 @@ jobs:
         run: python -m unittest discover -s tests -p test_wsl2_discovery.py -v
       - name: WSL2 runtime unit tests (mocked host)
         run: python -m unittest discover -s tests -p test_wsl2_runtime.py -v
+      - name: Unified runtime eligibility unit tests
+        run: python -m unittest discover -s tests -p test_runtime_choices.py -v
+      - name: Real Windows native execution smoke (whoami.exe)
+        run: python -m unittest discover -s tests -p test_windows_native_smoke.py -v
       - name: Package standalone GUI
         run: |
           python -m pip install pyinstaller

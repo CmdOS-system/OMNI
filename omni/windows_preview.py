@@ -43,7 +43,8 @@ def main():
     from omni.catalog import add_inspection, load_catalog, remove_inspection
     from omni.windows_runtime import assess_native_windows, launch_native_windows
     from omni.process_manager import NativeProcessManager
-    from omni.wsl2_discovery import discover_wsl2, assess_elf_wsl
+    from omni.wsl2_discovery import discover_wsl2
+    from omni.runtime_choices import build_runtime_overview
     from omni.wsl2_runtime import assess_elf_wsl_launch, launch_elf_wsl
     import queue
     import subprocess
@@ -71,6 +72,9 @@ def main():
     catalog = tk.Listbox(window, bg="#182437", fg="#E2E8F0", selectbackground="#2563EB",
                          height=6, relief="flat", font=("Segoe UI", 10))
     catalog.pack(fill="x", padx=30, pady=(0, 10))
+    runtime_status = tk.StringVar(value="Selecciona una aplicación para consultar los motores")
+    tk.Label(window, textvariable=runtime_status, font=("Segoe UI", 10),
+             fg="#93C5FD", bg="#101827").pack(pady=(0, 6))
 
     def refresh_catalog():
         catalog.delete(0, "end")
@@ -125,11 +129,14 @@ def main():
             record = selected_record()
             if record is None:
                 return
-            decision = assess_native_windows(record)
+            decision = build_runtime_overview(record, wsl_discovery, wsl_choice.get())
+            preferred = decision["preferred_runtime"]
+            runtime_status.set("Motor disponible: " + preferred if preferred else
+                               "Sin motor disponible para esta aplicación")
             output.configure(state="normal")
             output.delete("1.0", "end")
             output.insert("1.0", json.dumps(
-                {"application": record, "native_windows": decision},
+                {"application": record, "runtimes": decision},
                 indent=2, ensure_ascii=False))
             output.configure(state="disabled")
         except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -215,7 +222,10 @@ def main():
             display = {"wsl2_discovery": discovery}
             if record is not None:
                 display["selected_application"] = record["name"]
-                display["linux_runtime"] = assess_elf_wsl(record, discovery)
+                display["runtimes"] = build_runtime_overview(record, discovery, wsl_choice.get())
+                preferred = display["runtimes"]["preferred_runtime"]
+                runtime_status.set("Motor disponible: " + preferred if preferred else
+                                   "Sin motor disponible para esta aplicación")
             output.configure(state="normal")
             output.delete("1.0", "end")
             output.insert("1.0", json.dumps(display, indent=2, ensure_ascii=False))
@@ -332,6 +342,7 @@ def main():
     wsl_button.pack(pady=(0, 8))
     wsl_selector = ttk.Combobox(window, textvariable=wsl_choice, state="readonly", width=36)
     wsl_selector.pack(pady=(0, 6))
+    wsl_selector.bind("<<ComboboxSelected>>", show_selected)
     wsl_launch_button = ttk.Button(window, text="Abrir ELF en Linux (WSL2)",
                                    command=launch_selected_wsl, state="disabled")
     wsl_launch_button.pack(pady=(0, 12))
