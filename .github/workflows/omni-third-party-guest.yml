@@ -1,0 +1,31 @@
+name: OMNI real third-party GNU hello in Linux guest
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  third-party-guest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install real Ubuntu package and VM prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 linux-image-virtual busybox-static cpio hello binutils
+          sudo install -d -m 0755 /tmp/omni-guest-boot
+          sudo install -m 0644 "$(readlink -f /boot/vmlinuz)" /tmp/omni-guest-boot/vmlinuz
+      - name: Run packaged GNU hello in real guest
+        run: |
+          set -euo pipefail
+          python3 -m scripts.third_party_guest_probe 2>&1 | tee omni-third-party.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-third-party-guest-evidence
+          path: |
+            omni-third-party.log
+            omni-third-party-evidence/
