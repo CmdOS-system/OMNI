@@ -1,0 +1,33 @@
+name: OMNI cgroup v2 resource preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/resource_preflight.py"
+      - "tests/test_resource_preflight.py"
+      - ".github/workflows/omni-resource-preflight.yml"
+  workflow_dispatch:
+jobs:
+  resource-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect kernel resource interfaces
+        run: |
+          set -o pipefail
+          python3 -m omni.resource_preflight | tee omni-resource-evidence.json
+          python3 - <<'PY'
+          import json
+          with open("omni-resource-evidence.json") as f:
+              result = json.load(f)
+          assert result["schema"] == "omni.resource_preflight.v1"
+          assert result["resource_limits_enforced_by_omni"] is False
+          assert result["execution_authorized"] is False
+          PY
+      - name: Resource preflight unit tests
+        run: python3 -m unittest discover -s tests -p test_resource_preflight.py -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-resource-preflight-evidence
+          path: omni-resource-evidence.json
