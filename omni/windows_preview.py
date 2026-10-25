@@ -40,7 +40,7 @@ def inspect_preview(path):
 
 
 def main():
-    from omni.catalog import add_inspection, load_catalog, remove_inspection
+    from omni.catalog import add_inspection, backup_catalog, load_catalog, remove_inspection
     from omni.process_manager import NativeProcessManager
     from omni.wsl2_discovery import discover_wsl2
     from omni.runtime_choices import build_runtime_overview
@@ -108,7 +108,16 @@ def main():
         try:
             entries = load_catalog()
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            messagebox.showwarning("OMNI | Catálogo", str(exc))
+            if messagebox.askyesno(
+                "OMNI | Catálogo dañado",
+                f"No se puede leer la biblioteca: {exc}\\n\\n"
+                "¿Guardar una copia de recuperación del archivo original? "
+                "No se borrará ni se reemplazará la biblioteca."):
+                try:
+                    backup = backup_catalog()
+                    messagebox.showinfo("OMNI | Copia guardada", str(backup))
+                except OSError as backup_error:
+                    messagebox.showerror("OMNI | Copia fallida", str(backup_error))
             return
         catalog_entries = entries
         catalog_statuses = {}
