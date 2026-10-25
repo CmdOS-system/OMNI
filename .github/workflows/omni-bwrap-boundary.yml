@@ -25,7 +25,7 @@ jobs:
           with open("omni-bwrap-evidence.json") as f:
               data = json.load(f)
           assert data["execution_authorized"] is False
-          assert data["status"] in ("BOUNDARY_OBSERVED", "BLOCKED")
+          assert data["status"] == "BOUNDARY_OBSERVED", data
           print("Observed boundary status:", data["status"])
           PY
       - uses: actions/upload-artifact@v4
