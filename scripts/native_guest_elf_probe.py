@@ -11,6 +11,25 @@ import tempfile
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
+def assess_native_guest(data, nonce, expected_value, qemu_exit_code, timed_out):
+    """Classify only a complete, successful guest execution."""
+    result = ("OMNI_GUEST_NATIVE_PROGRAM_V1 value=" + str(expected_value)).encode()
+    exit_marker = ("OMNI_NATIVE_EXIT_V1 nonce=" + nonce + " code=0").encode()
+    lines = {line.strip() for line in data.splitlines()}
+    native_ok = result in lines
+    exit_ok = exit_marker in lines
+    banner = bool(re.search(rb"Linux version [0-9]", data))
+    panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
+    passed = native_ok and exit_ok and banner and not panic and qemu_exit_code == 0 and not timed_out
+    return {
+        "native_result_observed": native_ok,
+        "native_exit_observed": exit_ok,
+        "kernel_banner_observed": banner,
+        "kernel_panic_observed": panic,
+        "status": "NATIVE_ELF_GUEST_EXECUTED_UNATTESTED" if passed else "BLOCKED",
+    }
+
+
 def main():
     kernel = Path("/tmp/omni-guest-boot/vmlinuz")
     busybox = shutil.which("busybox")
@@ -62,22 +81,15 @@ def main():
             except subprocess.TimeoutExpired:
                 rc, timed_out = None, True
         data = serial.read_bytes() if serial.exists() else b""
-        expected_result = ("OMNI_GUEST_NATIVE_PROGRAM_V1 value=" + str(a + b)).encode()
-        expected_exit = ("OMNI_NATIVE_EXIT_V1 nonce=" + nonce + " code=0").encode()
-        native_ok = any(line.strip() == expected_result for line in data.splitlines())
-        exit_ok = any(line.strip() == expected_exit for line in data.splitlines())
-        banner = bool(re.search(rb"Linux version [0-9]", data))
-        panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
-        success = native_ok and exit_ok and banner and not panic and rc == 0 and not timed_out
+        checks = assess_native_guest(data, nonce, a + b, rc, timed_out)
+        success = checks["status"] != "BLOCKED"
         report = {
             "schema": "omni.native_guest_elf.v1",
-            "status": "NATIVE_ELF_GUEST_EXECUTED_UNATTESTED" if success else "BLOCKED",
+            "status": checks["status"],
             "source_sha256": sha256("guest/native_task.c"),
             "elf_sha256": sha256(native), "kernel_sha256": sha256(kernel),
             "initramfs_sha256": sha256(archive), "serial_sha256": hashlib.sha256(data).hexdigest(),
-            "nonce": nonce, "native_result_observed": native_ok,
-            "native_exit_observed": exit_ok, "kernel_banner_observed": banner,
-            "kernel_panic_observed": panic, "qemu_exit_code": rc, "timed_out": timed_out,
+            "nonce": nonce, **checks, "qemu_exit_code": rc, "timed_out": timed_out,
             "third_party_app_executed": False, "compatibility_certified": False,
             "guest_attested": False,
         }
