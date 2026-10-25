@@ -46,6 +46,7 @@ def main():
     from omni.runtime_choices import build_runtime_overview
     from omni.launch_coordinator import launch_with_recommended_runtime
     from omni.library_health import check_catalog_integrity
+    from omni.library_status import format_catalog_row, scan_catalog_statuses
     import queue
     import subprocess
     import threading
@@ -76,13 +77,67 @@ def main():
     tk.Label(window, textvariable=runtime_status, font=("Segoe UI", 10),
              fg="#93C5FD", bg="#101827").pack(pady=(0, 6))
 
-    def refresh_catalog():
+    catalog_entries = []
+    catalog_statuses = {}
+    scan_revision = 0
+    scan_results = queue.Queue()
+    scan_lock = threading.Lock()
+
+    def render_catalog(selected_path=None):
+        if selected_path is None:
+            selection = catalog.curselection()
+            if selection and selection[0] < len(catalog_entries):
+                selected_path = catalog_entries[selection[0]]["path"]
         catalog.delete(0, "end")
+        for index, item in enumerate(catalog_entries):
+            status = catalog_statuses.get(item["path"], "checking")
+            catalog.insert("end", format_catalog_row(item, status))
+            color = {"unchanged": "#86EFAC", "modified": "#FBBF24",
+                     "missing": "#FB7185", "unavailable": "#FDA4AF"}.get(
+                         status, "#CBD5E1")
+            catalog.itemconfig(index, fg=color)
+            if item["path"] == selected_path:
+                catalog.selection_set(index)
+                catalog.activate(index)
+
+    def refresh_catalog():
+        nonlocal catalog_entries, catalog_statuses, scan_revision
+        selection = catalog.curselection()
+        previous_path = (catalog_entries[selection[0]]["path"]
+                         if selection and selection[0] < len(catalog_entries) else None)
         try:
-            for item in load_catalog():
-                catalog.insert("end", f'{item["name"]}  ·  {item["format"]}  ·  {item["architecture"]}')
+            entries = load_catalog()
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             messagebox.showwarning("OMNI | Catálogo", str(exc))
+            return
+        catalog_entries = entries
+        catalog_statuses = {}
+        render_catalog(previous_path)
+        scan_revision += 1
+        revision = scan_revision
+        snapshot = [dict(item) for item in entries]
+
+        def worker():
+            # Serialize scans so repeated imports do not create parallel
+            # hashing storms. Discard results for an older catalog revision.
+            with scan_lock:
+                if revision != scan_revision:
+                    return
+                scan_results.put((revision, scan_catalog_statuses(snapshot)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def poll_catalog_scan():
+        nonlocal catalog_statuses
+        while True:
+            try:
+                revision, statuses = scan_results.get_nowait()
+            except queue.Empty:
+                break
+            if revision == scan_revision:
+                catalog_statuses = statuses
+                render_catalog()
+        window.after(200, poll_catalog_scan)
 
     launch_status = tk.StringVar(value="Listo para abrir una aplicación seleccionada")
     tk.Label(window, textvariable=launch_status, font=("Segoe UI", 10),
@@ -124,8 +179,8 @@ def main():
         selection = catalog.curselection()
         if not selection:
             return None
-        items = load_catalog()
-        return items[selection[0]] if selection[0] < len(items) else None
+        return (catalog_entries[selection[0]]
+                if selection[0] < len(catalog_entries) else None)
 
     def show_selected(_event=None):
         try:
@@ -328,6 +383,8 @@ def main():
         if current is None or current["path"] != result["path"]:
             return
         status = result["status"]
+        catalog_statuses[current["path"]] = status
+        render_catalog()
         descriptions = {
             "unchanged": "Archivo sin cambios desde su registro.",
             "modified": "Archivo modificado: vuelve a agregarlo para revisar la nueva versión.",
@@ -371,9 +428,12 @@ def main():
         if not selection:
             return
         try:
-            items = load_catalog()
-            remove_inspection(items[selection[0]]["path"])
+            record = selected_record()
+            if record is None:
+                return
+            remove_inspection(record["path"])
             refresh_catalog()
+            runtime_status.set("Selecciona una aplicación para consultar los motores")
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             messagebox.showerror("OMNI | Catálogo", str(exc))
 
@@ -417,6 +477,7 @@ def main():
     wsl_selector.pack(pady=(0, 6))
     wsl_selector.bind("<<ComboboxSelected>>", show_selected)
     refresh_catalog()
+    poll_catalog_scan()
     update_process_status()
     window.mainloop()
 

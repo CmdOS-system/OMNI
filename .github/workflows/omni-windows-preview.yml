@@ -8,7 +8,9 @@ on:
       - "tests/test_catalog.py"
       - "omni/catalog.py"
       - "omni/library_health.py"
+      - "omni/library_status.py"
       - "tests/test_library_health.py"
+      - "tests/test_library_status.py"
       - "omni/windows_runtime.py"
       - "tests/test_windows_runtime.py"
       - "omni/process_manager.py"
@@ -40,6 +42,8 @@ jobs:
       - run: python -m unittest discover -s tests -p test_catalog.py -v
       - name: Library integrity unit tests
         run: python -m unittest discover -s tests -p test_library_health.py -v
+      - name: Library status unit tests
+        run: python -m unittest discover -s tests -p test_library_status.py -v
       - name: Native Windows runtime unit tests
         run: python -m unittest discover -s tests -p test_windows_runtime.py -v
       - name: Process manager unit tests
