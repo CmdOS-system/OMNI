@@ -5,6 +5,8 @@ children may survive. It never enumerates or terminates arbitrary host PIDs.
 """
 from dataclasses import dataclass
 
+from omni.diagnostics import StderrCapture
+
 
 @dataclass
 class _Session:
@@ -47,14 +49,18 @@ class NativeProcessManager:
         rows = []
         for session in self._sessions:
             code = session.process.poll()
-            rows.append({
+            row = {
                 "id": session.session_id,
                 "name": session.name,
                 "pid": session.process.pid,
                 "status": ("exited" if code is not None else
                            "stop_requested" if session.stop_requested else "running"),
                 "exit_code": code,
-            })
+            }
+            capture = getattr(session.process, "omni_stderr_capture", None)
+            if isinstance(capture, StderrCapture):
+                row["diagnostics"] = capture.snapshot()
+            rows.append(row)
         return rows
 
     def stop(self, session_id, *, confirmed=False):

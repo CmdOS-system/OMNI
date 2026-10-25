@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 
+from omni.diagnostics import StderrCapture
 from omni.windows_preview import inspect_preview
 from omni.wsl2_discovery import discover_wsl2
 
@@ -102,14 +103,19 @@ def launch_elf_wsl(record, distribution, *, confirmed=False, host_system=None,
         stderr=subprocess.PIPE, check=False, timeout=10,
         creationflags=flags)
     if translated.returncode != 0:
-        raise ValueError("WSL2 could not translate the Windows file path")
+        raise ValueError(f"WSL2 could not translate the Windows file path (exit {translated.returncode}); check the selected distribution and Windows drive mounts")
     raw = translated.stdout
     linux_path = (raw.decode("utf-8-sig", errors="strict")
                   if isinstance(raw, bytes) else raw).rstrip("\r\n")
     if (not linux_path.startswith("/") or "\x00" in linux_path
             or "\n" in linux_path or "\r" in linux_path):
         raise ValueError("WSL2 returned an invalid Linux path")
-    return popen(
+    process = popen(
         [executable, "--distribution", distribution, "--exec", linux_path],
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL, shell=False, creationflags=flags)
+        stderr=subprocess.PIPE, shell=False, creationflags=flags)
+    # A background reader prevents stderr pipe deadlocks and retains a bounded
+    # diagnostic tail. No guest output is stored on disk by OMNI.
+    if getattr(process, "stderr", None) is not None:
+        process.omni_stderr_capture = StderrCapture(process.stderr)
+    return process

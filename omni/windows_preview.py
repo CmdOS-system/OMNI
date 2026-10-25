@@ -193,6 +193,27 @@ def main():
         except (OSError, KeyError, PermissionError) as exc:
             messagebox.showerror("OMNI | No se pudo cerrar", str(exc))
 
+    def show_process_diagnostics():
+        selection = process_list.curselection()
+        if not selection or selection[0] >= len(displayed_sessions):
+            messagebox.showinfo("OMNI", "Selecciona un proceso de la lista.")
+            return
+        row = displayed_sessions[selection[0]]
+        info = row.get("diagnostics")
+        if info is None:
+            messagebox.showinfo("OMNI | Diagnóstico",
+                                "Este motor no dispone de captura de errores.")
+            return
+        tail = info["stderr_tail"].strip()
+        state = ("Captura completa" if info["stderr_complete"]
+                 else "Captura en curso")
+        if info["stderr_truncated"]:
+            state += " · inicio recortado (máximo 8 KiB)"
+        if row["exit_code"] is not None:
+            state += f' · código de salida {row["exit_code"]}'
+        messagebox.showinfo("OMNI | Diagnóstico WSL2",
+                            state + "\\n\\n" + (tail or "Sin mensajes de error capturados."))
+
     def update_process_status():
         rows = refresh_processes()
         active = sum(row["status"] != "exited" for row in rows)
@@ -338,6 +359,7 @@ def main():
     ttk.Button(controls, text="Quitar de biblioteca", command=remove_selected).pack(side="left", padx=6)
     ttk.Button(controls, text="Abrir .exe de Windows", command=launch_selected).pack(side="left", padx=6)
     ttk.Button(controls, text="Forzar cierre", command=stop_selected_process).pack(side="left", padx=6)
+    ttk.Button(controls, text="Ver diagnóstico", command=show_process_diagnostics).pack(side="left", padx=6)
     wsl_button = ttk.Button(window, text="Detectar motor Linux (WSL2)", command=check_wsl2)
     wsl_button.pack(pady=(0, 8))
     wsl_selector = ttk.Combobox(window, textvariable=wsl_choice, state="readonly", width=36)
