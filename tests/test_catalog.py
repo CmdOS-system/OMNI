@@ -1,5 +1,6 @@
 import tempfile
 import json
+from unittest import mock
 from pathlib import Path
 import unittest
 from omni.catalog import add_inspection, backup_catalog, load_catalog, remove_inspection
@@ -53,6 +54,19 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(created.name, "catalog.json.backup-0002")
             self.assertEqual(occupied.read_bytes(), b"keep this")
             self.assertEqual(created.read_bytes(), b"original")
+
+    def test_backup_fsync_failure_removes_only_new_copy(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "catalog.json"
+            db.write_bytes(b"important data")
+            existing = db.with_name("catalog.json.backup-0001")
+            existing.write_bytes(b"preserve")
+            with mock.patch("omni.catalog.os.fsync", side_effect=OSError("disk error")):
+                with self.assertRaises(OSError):
+                    backup_catalog(db)
+            self.assertEqual(db.read_bytes(), b"important data")
+            self.assertEqual(existing.read_bytes(), b"preserve")
+            self.assertFalse(db.with_name("catalog.json.backup-0002").exists())
 
     def test_corrupt_catalog_fails(self):
         with tempfile.TemporaryDirectory() as td:
