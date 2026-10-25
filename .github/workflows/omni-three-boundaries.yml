@@ -1,0 +1,34 @@
+name: OMNI three boundaries in one process
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/three_boundary_probe.py"
+      - "tests/test_three_boundary_probe.py"
+      - ".github/workflows/omni-three-boundaries.yml"
+  workflow_dispatch:
+jobs:
+  three:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap
+      - name: Require filesystem, network and timeout in one process
+        run: |
+          set -o pipefail
+          python3 -m omni.three_boundary_probe | tee omni-three-evidence.json
+          python3 - <<'PY'
+          import json
+          with open('omni-three-evidence.json') as f:
+              data = json.load(f)
+          assert data['status'] == 'THREE_BOUNDARIES_OBSERVED', data
+          assert data['execution_authorized'] is False
+          assert data['memory_cpu_verified'] is False
+          PY
+      - run: python3 -m unittest discover -s tests -p 'test_three_boundary_probe.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-three-boundary-evidence
+          path: omni-three-evidence.json
