@@ -212,7 +212,7 @@ def main():
         if row["exit_code"] is not None:
             state += f' · código de salida {row["exit_code"]}'
         messagebox.showinfo("OMNI | Diagnóstico WSL2",
-                            state + "\\n\\n" + (tail or "Sin mensajes de error capturados."))
+                            state + "\n\n" + (tail or "Sin mensajes de error capturados."))
 
     def update_process_status():
         rows = refresh_processes()

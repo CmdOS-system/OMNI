@@ -45,7 +45,7 @@ class StderrCapture:
         with self._lock:
             tail, truncated, complete = self._tail, self._truncated, self._complete
         text = tail.decode("utf-8", errors="replace")
-        text = re.sub(r"[\\x00-\\x08\\x0b-\\x1f\\x7f]", "�", text)
+        text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "�", text)
         return {"stderr_tail": text, "stderr_truncated": truncated,
                 "stderr_complete": complete}
 

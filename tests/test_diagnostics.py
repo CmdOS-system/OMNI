@@ -25,9 +25,9 @@ class StderrCaptureTests(unittest.TestCase):
         self.assertTrue(state["stderr_tail"].endswith("END_MARKER"))
 
     def test_clean_text_and_empty_stderr(self):
-        capture = StderrCapture(io.BytesIO(b"error\\x00line\\n"))
+        capture = StderrCapture(io.BytesIO(b"error\x00line\n"))
         self.assertTrue(capture.wait(5))
-        self.assertEqual(capture.snapshot()["stderr_tail"], "error�line\\n")
+        self.assertEqual(capture.snapshot()["stderr_tail"], "error�line\n")
         empty = StderrCapture(io.BytesIO(b""))
         self.assertTrue(empty.wait(5))
         self.assertEqual(empty.snapshot()["stderr_tail"], "")
@@ -36,13 +36,13 @@ class StderrCaptureTests(unittest.TestCase):
     def test_process_manager_exposes_only_owned_session_diagnostics(self):
         process = Mock(pid=123)
         process.poll.return_value = 7
-        process.omni_stderr_capture = StderrCapture(io.BytesIO(b"Permission denied\\n"))
+        process.omni_stderr_capture = StderrCapture(io.BytesIO(b"Permission denied\n"))
         self.assertTrue(process.omni_stderr_capture.wait(5))
         manager = NativeProcessManager()
         manager.register("hello [WSL2]", process)
         row = manager.snapshot()[0]
         self.assertEqual(row["exit_code"], 7)
-        self.assertEqual(row["diagnostics"]["stderr_tail"], "Permission denied\\n")
+        self.assertEqual(row["diagnostics"]["stderr_tail"], "Permission denied\n")
         plain = Mock(pid=456)
         plain.poll.return_value = 0
         manager.register("native.exe", plain)
