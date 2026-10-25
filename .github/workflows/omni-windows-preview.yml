@@ -86,10 +86,22 @@ jobs:
           if (-not (Test-Path $exe)) { throw "OMNI executable missing" }
           $file = Get-Item $exe
           if ($file.Length -le 0) { throw "OMNI executable is empty" }
-          Get-FileHash $exe -Algorithm SHA256 | Format-List
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  OMNI-Preview.exe" | Set-Content -Path "dist/OMNI-Preview.exe.sha256" -Encoding ascii
           Write-Host "OMNI Windows executable size: $($file.Length) bytes"
+          Write-Host "OMNI Windows SHA256: $hash"
+          @(
+            "## OMNI Windows Preview"
+            ""
+            "- Executable: `OMNI-Preview.exe`"
+            "- Size: $($file.Length) bytes"
+            "- SHA-256: `$hash`"
+            "- Validation: tests and package checks must pass before publishing"
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
       - uses: actions/upload-artifact@v4
         with:
           name: OMNI-Preview-Windows
-          path: dist/OMNI-Preview.exe
+          path: |
+            dist/OMNI-Preview.exe
+            dist/OMNI-Preview.exe.sha256
           if-no-files-found: error
