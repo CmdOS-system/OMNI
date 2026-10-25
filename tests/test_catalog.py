@@ -27,7 +27,7 @@ class CatalogTests(unittest.TestCase):
                 db.write_text(json.dumps([invalid]), encoding="utf-8")
                 with self.subTest(field=field), self.assertRaises(ValueError):
                     load_catalog(db)
-            db.write_text(__import__("json").dumps([valid]), encoding="utf-8")
+            db.write_text(json.dumps([valid]), encoding="utf-8")
             self.assertEqual(load_catalog(db), [valid])
 
     def test_backup_preserves_corrupt_json_without_overwriting(self):
@@ -42,6 +42,17 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(first.read_bytes(), b"{not valid json")
             self.assertEqual(second.read_bytes(), b"changed content")
             self.assertEqual(db.read_bytes(), b"changed content")
+
+    def test_backup_collision_does_not_delete_existing_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "catalog.json"
+            db.write_bytes(b"original")
+            occupied = db.with_name("catalog.json.backup-0001")
+            occupied.write_bytes(b"keep this")
+            created = backup_catalog(db)
+            self.assertEqual(created.name, "catalog.json.backup-0002")
+            self.assertEqual(occupied.read_bytes(), b"keep this")
+            self.assertEqual(created.read_bytes(), b"original")
 
     def test_corrupt_catalog_fails(self):
         with tempfile.TemporaryDirectory() as td:
