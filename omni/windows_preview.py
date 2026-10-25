@@ -41,11 +41,10 @@ def inspect_preview(path):
 
 def main():
     from omni.catalog import add_inspection, load_catalog, remove_inspection
-    from omni.windows_runtime import assess_native_windows, launch_native_windows
     from omni.process_manager import NativeProcessManager
     from omni.wsl2_discovery import discover_wsl2
     from omni.runtime_choices import build_runtime_overview
-    from omni.wsl2_runtime import assess_elf_wsl_launch, launch_elf_wsl
+    from omni.launch_coordinator import launch_with_recommended_runtime
     import queue
     import subprocess
     import threading
@@ -84,6 +83,9 @@ def main():
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             messagebox.showwarning("OMNI | Catálogo", str(exc))
 
+    launch_status = tk.StringVar(value="Listo para abrir una aplicación seleccionada")
+    tk.Label(window, textvariable=launch_status, font=("Segoe UI", 10),
+             fg="#E2E8F0", bg="#101827").pack(pady=(0, 6))
     process_manager = NativeProcessManager()
     displayed_sessions = []
     process_status = tk.StringVar(value="Sin procesos iniciados por OMNI")
@@ -144,33 +146,6 @@ def main():
 
     catalog.bind("<<ListboxSelect>>", show_selected)
 
-    def launch_selected():
-        try:
-            record = selected_record()
-            if record is None:
-                messagebox.showinfo("OMNI", "Selecciona primero una aplicación de la biblioteca.")
-                return
-            decision = assess_native_windows(record)
-            if not decision["launch_available"]:
-                messagebox.showwarning("OMNI | Motor no disponible",
-                    "No existe un motor configurado para abrir este archivo.\n\n"
-                    + ", ".join(decision["reasons"]))
-                return
-            consent = messagebox.askyesno(
-                "OMNI | Confirmar ejecución nativa",
-                f'¿Abrir {record["name"]}?\n\nRuta: {record["path"]}\n\n'
-                "Esta aplicación se ejecutará directamente en Windows con "
-                "tus permisos habituales. NO hay aislamiento ni garantía "
-                "de seguridad. Abre solo aplicaciones en las que confíes.")
-            if not consent:
-                return
-            process = launch_native_windows(record, confirmed=True)
-            process_manager.register(record["name"], process)
-            refresh_processes()
-            process_status.set(f'Iniciado: {record["name"]} (PID {process.pid})')
-        except (OSError, ValueError, PermissionError, json.JSONDecodeError) as exc:
-            messagebox.showerror("OMNI | No se pudo abrir", str(exc))
-
     def stop_selected_process():
         selection = process_list.curselection()
         if not selection or selection[0] >= len(displayed_sessions):
@@ -221,7 +196,7 @@ def main():
         window.after(1000, update_process_status)
 
     wsl_results = queue.Queue()
-    wsl_launch_results = queue.Queue()
+    launch_results = queue.Queue()
     wsl_discovery = {}
     wsl_choice = tk.StringVar()
 
@@ -237,7 +212,6 @@ def main():
         distros = discovery.get("wsl2_distributions", [])
         wsl_selector.configure(values=distros)
         wsl_choice.set(distros[0] if distros else "")
-        wsl_launch_button.configure(state="normal" if distros else "disabled")
         try:
             record = selected_record()
             display = {"wsl2_discovery": discovery}
@@ -269,59 +243,72 @@ def main():
         threading.Thread(target=worker, daemon=True).start()
         window.after(100, poll_wsl2)
 
-    def poll_wsl_launch():
+    def poll_launch():
         try:
-            kind, payload = wsl_launch_results.get_nowait()
+            kind, payload = launch_results.get_nowait()
         except queue.Empty:
-            window.after(100, poll_wsl_launch)
+            window.after(100, poll_launch)
             return
-        wsl_launch_button.configure(
-            state="normal" if wsl_choice.get() else "disabled")
+        launch_button.configure(state="normal")
         if kind == "error":
-            messagebox.showerror("OMNI | Ejecución Linux", payload)
+            launch_status.set("No se pudo iniciar la aplicación")
+            messagebox.showerror("OMNI | Ejecución", payload)
             return
-        name, distribution, process = payload
-        process_manager.register(f"{name} [WSL2: {distribution}]", process)
+        name, runtime, distribution, process = payload
+        label = f"{name} [WSL2: {distribution}]" if runtime == "wsl2-elf" else name
+        process_manager.register(label, process)
         refresh_processes()
-        process_status.set(f"Iniciado en WSL2: {name} (PID Windows {process.pid})")
+        launch_status.set(f"Iniciado con {runtime}: {name} (PID Windows {process.pid})")
 
-    def launch_selected_wsl():
+    def launch_recommended():
         try:
             record = selected_record()
             if record is None:
-                messagebox.showinfo("OMNI", "Selecciona un ELF de la biblioteca.")
+                messagebox.showinfo("OMNI", "Selecciona primero una aplicación de la biblioteca.")
                 return
             distribution = wsl_choice.get()
-            decision = assess_elf_wsl_launch(record, wsl_discovery, distribution)
-            if not decision["launch_available"]:
-                messagebox.showwarning("OMNI | WSL2 no disponible",
-                    ", ".join(decision["reasons"]))
+            overview = build_runtime_overview(record, wsl_discovery, distribution)
+            runtime = overview["preferred_runtime"]
+            if runtime is None:
+                native_reasons = ", ".join(overview["native_windows"]["reasons"])
+                linux_reasons = ", ".join(overview["linux_wsl2"]["reasons"])
+                messagebox.showwarning("OMNI | Sin motor disponible",
+                    f"Windows: {native_reasons}\n\nWSL2: {linux_reasons}")
                 return
+            target = ("Windows nativo" if runtime == "windows-native"
+                      else f"Linux WSL2 ({distribution})")
             consent = messagebox.askyesno(
-                "OMNI | Confirmar ejecución en Linux",
-                f'¿Ejecutar {record["name"]} en WSL2 ({distribution})?\n\n'
+                "OMNI | Confirmar ejecución",
+                f'¿Abrir {record["name"]} con {target}?\n\n'
                 f'Archivo: {record["path"]}\n\n'
-                "El programa tendrá los permisos del usuario de Linux y "
-                "podría acceder a archivos de Windows y a la red. WSL2 NO "
-                "es un entorno aislado de seguridad. No hay garantía de "
-                "compatibilidad. Cerrar wsl.exe puede dejar procesos Linux "
-                "en ejecución. Usa solamente programas de confianza.")
+                "La aplicación se ejecutará con tus permisos habituales. "
+                "NO hay aislamiento ni garantía de seguridad o compatibilidad. "
+                "En WSL2 podría acceder a archivos de Windows y a la red; "
+                "cerrar wsl.exe no garantiza detener procesos Linux secundarios. "
+                "Abre solamente programas de confianza.")
             if not consent:
                 return
-            wsl_launch_button.configure(state="disabled")
+            # The worker repeats eligibility and file-integrity checks just
+            # before execution. No Tkinter calls are made outside the UI thread.
+            launch_button.configure(state="disabled")
+            launch_status.set(f"Preparando ejecución con {target}...")
 
             def worker():
                 try:
-                    process = launch_elf_wsl(record, distribution, confirmed=True)
-                    wsl_launch_results.put(("ok", (record["name"], distribution, process)))
+                    result = launch_with_recommended_runtime(
+                        record, wsl_discovery, distribution, confirmed=True)
+                    launch_results.put(("ok", (record["name"], result["runtime"],
+                                               distribution, result["process"])))
                 except (OSError, ValueError, PermissionError,
                         subprocess.TimeoutExpired, UnicodeError) as exc:
-                    wsl_launch_results.put(("error", str(exc)))
+                    launch_results.put(("error", str(exc)))
+                except Exception as exc:
+                    launch_results.put(("error", f"Error inesperado: {type(exc).__name__}"))
 
             threading.Thread(target=worker, daemon=True).start()
-            window.after(100, poll_wsl_launch)
+            window.after(100, poll_launch)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            messagebox.showerror("OMNI | WSL2", str(exc))
+            messagebox.showerror("OMNI | Ejecución", str(exc))
 
     def remove_selected():
         selection = catalog.curselection()
@@ -346,6 +333,9 @@ def main():
         try:
             add_inspection(filename, data)
             refresh_catalog()
+            catalog.selection_set(0)
+            catalog.activate(0)
+            show_selected()
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             messagebox.showwarning("OMNI | Catálogo", str(exc))
         output.configure(state="normal")
@@ -357,7 +347,8 @@ def main():
     controls.pack(pady=(0, 18))
     ttk.Button(controls, text="Seleccionar archivo", command=choose).pack(side="left", padx=6)
     ttk.Button(controls, text="Quitar de biblioteca", command=remove_selected).pack(side="left", padx=6)
-    ttk.Button(controls, text="Abrir .exe de Windows", command=launch_selected).pack(side="left", padx=6)
+    launch_button = ttk.Button(controls, text="Abrir con motor recomendado", command=launch_recommended)
+    launch_button.pack(side="left", padx=6)
     ttk.Button(controls, text="Forzar cierre", command=stop_selected_process).pack(side="left", padx=6)
     ttk.Button(controls, text="Ver diagnóstico", command=show_process_diagnostics).pack(side="left", padx=6)
     wsl_button = ttk.Button(window, text="Detectar motor Linux (WSL2)", command=check_wsl2)
@@ -365,9 +356,6 @@ def main():
     wsl_selector = ttk.Combobox(window, textvariable=wsl_choice, state="readonly", width=36)
     wsl_selector.pack(pady=(0, 6))
     wsl_selector.bind("<<ComboboxSelected>>", show_selected)
-    wsl_launch_button = ttk.Button(window, text="Abrir ELF en Linux (WSL2)",
-                                   command=launch_selected_wsl, state="disabled")
-    wsl_launch_button.pack(pady=(0, 12))
     refresh_catalog()
     update_process_status()
     window.mainloop()
