@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - "omni/windows_preview.py"
+      - "README.md"
+      - "docs/ARCHITECTURE.md"
+      - "engine/loader/src/package_inspector.rs"
+      - "engine/loader/tests/make_fixtures.py"
       - "tests/test_windows_preview.py"
       - "tests/test_catalog.py"
       - "omni/catalog.py"
