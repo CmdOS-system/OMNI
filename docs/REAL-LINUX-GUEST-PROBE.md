@@ -1,0 +1,3 @@
+# Experimental real Linux guest kernel probe
+
+The manually triggered workflow installs Ubuntu's kernel/initramfs and QEMU, runs the kernel with serial console and no network, and requires a Linux kernel banner in captured serial output. It records hashes of the actual guest kernel/initramfs and serial output. It **does not verify full userspace boot, independently attest the guest, prove sandboxing, or execute third-party applications**. The banner is untrusted local output; a fake or compromised emulator could forge it. The workflow is intentionally manual because installing a guest kernel and emulating a kernel takes time. GitHub Actions results, not a committed workflow alone, determine whether this probe works.

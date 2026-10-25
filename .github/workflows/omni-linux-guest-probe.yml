@@ -1,0 +1,27 @@
+name: OMNI real Linux guest boot (experimental)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-guest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU and Ubuntu guest kernel/initramfs
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 linux-image-virtual
+      - name: Run actual guest boot probe
+        run: |
+          set -euo pipefail
+          python3 -m scripts.linux_guest_probe 2>&1 | tee omni-linux-guest-probe.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-linux-guest-probe-evidence
+          path: |
+            omni-linux-guest-probe.log
+            omni-linux-guest-evidence/
