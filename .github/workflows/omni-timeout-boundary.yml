@@ -25,6 +25,7 @@ jobs:
           assert data['status'] == 'WALL_TIMEOUT_ENFORCED', data
           assert data['timeout_triggered'] is True
           assert data['process_reaped'] is True
+          assert data['returncode'] != 0
           assert data['execution_authorized'] is False
           PY
       - run: python3 -m unittest discover -s tests -p 'test_timeout_probe.py' -v
