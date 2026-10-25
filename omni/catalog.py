@@ -20,7 +20,10 @@ def load_catalog(path=None):
     if not isinstance(data, list) or len(data) > 1000:
         raise ValueError("Invalid OMNI catalog")
     for entry in data:
-        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+        if (not isinstance(entry, dict) or not all(
+            isinstance(entry.get(field), str) and entry[field]
+            for field in ("path", "name", "format", "architecture", "sha256")
+        )):
             raise ValueError("Invalid OMNI catalog entry")
     return data
 
