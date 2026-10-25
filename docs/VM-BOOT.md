@@ -1,0 +1,3 @@
+# QEMU boot attempt (unattested)
+
+`vm/boot.py` launches QEMU only with explicit `allow_boot=True`, a regular overlay matching its expected SHA-256, and an available executable. The constructed command disables networking, display, monitor and host sharing; it uses TCG, time limits and process-group termination. This is **not a security sandbox** and does not validate guest OS boot or application compatibility. It does not create overlays; use a trusted disposable overlay and an isolated host. The serial log is hashed but not retained; future work requires durable independent evidence and guest-side attestation. Unit tests include a fake executable exclusively to validate harness behavior, not to claim real QEMU execution.
