@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn parses_binary_android_manifest_package_id() {
         let bytes = include_bytes!("../tests/fixtures/minimal-manifest.axml");
-        assert_eq!(android_package_id(bytes).unwrap(), "com.example.nexus.smoke");
+        assert_eq!(android_package_id(bytes).unwrap(), "com.example.omni.smoke");
         assert!(android_package_id(b"<manifest package='bad'/>").is_err());
     }
 }
