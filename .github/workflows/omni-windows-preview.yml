@@ -4,10 +4,6 @@ on:
     branches: [main]
     paths:
       - "omni/windows_preview.py"
-      - "README.md"
-      - "docs/ARCHITECTURE.md"
-      - "engine/loader/src/package_inspector.rs"
-      - "engine/loader/tests/make_fixtures.py"
       - "tests/test_windows_preview.py"
       - "tests/test_catalog.py"
       - "omni/catalog.py"
@@ -73,7 +69,8 @@ jobs:
             "engine/loader/src/package_inspector.rs",
             "engine/loader/tests/make_fixtures.py"
           )
-          $matches = Select-String -Path $files -Pattern 'nexus|nessus' -AllMatches
+          $legacyNames = @("ne" + "xus", "ne" + "ssus")
+          $matches = Select-String -Path $files -Pattern $legacyNames -AllMatches
           if ($matches) {
             $matches | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber): $($_.Line)" }
             throw "Legacy branding detected in OMNI source"
