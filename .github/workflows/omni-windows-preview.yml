@@ -93,9 +93,9 @@ jobs:
           @(
             "## OMNI Windows Preview"
             ""
-            "- Executable: `OMNI-Preview.exe`"
+            "- Executable: OMNI-Preview.exe"
             "- Size: $($file.Length) bytes"
-            "- SHA-256: `$hash`"
+            "- SHA-256: $hash"
             "- Validation: tests and package checks must pass before publishing"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
       - uses: actions/upload-artifact@v4
