@@ -1,0 +1,35 @@
+name: OMNI same-process filesystem and network boundaries
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/integrated_probe.py"
+      - "tests/test_integrated_probe.py"
+      - ".github/workflows/omni-integrated-boundaries.yml"
+  workflow_dispatch:
+jobs:
+  integrated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap
+      - name: Require both observed boundaries in one process
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m omni.integrated_probe | tee omni-integrated-evidence.json
+          python3 - <<'PY'
+          import json
+          with open('omni-integrated-evidence.json') as f:
+              data = json.load(f)
+          assert data['status'] == 'TWO_BOUNDARIES_OBSERVED', data
+          assert data['execution_authorized'] is False
+          assert data['resource_limits_verified'] is False
+          PY
+      - run: python3 -m unittest discover -s tests -p 'test_integrated_probe.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-integrated-boundary-evidence
+          path: omni-integrated-evidence.json
