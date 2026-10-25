@@ -28,12 +28,19 @@ def scan_catalog_statuses(records, checker=check_catalog_integrity):
     """
     statuses = {}
     for record in records:
+        # Corrupt or incomplete catalog entries must not abort the whole scan.
+        # Skip entries without usable path keys; they cannot be shown safely.
+        if not isinstance(record, dict):
+            continue
+        path = record.get("path")
+        if not isinstance(path, str) or not path:
+            continue
         try:
             result = checker(record)
-            status = result.get("status")
+            status = result.get("status") if isinstance(result, dict) else None
             if status not in ("unchanged", "modified", "missing", "unavailable"):
                 status = "unavailable"
         except Exception:
             status = "unavailable"
-        statuses[record["path"]] = status
+        statuses[path] = status
     return statuses
