@@ -1,4 +1,4 @@
-"""OMNI Windows preview: read-only file inspection, no execution."""
+"""OMNI Windows desktop: inspect files and explicitly launch native Windows EXEs."""
 import hashlib
 import json
 import os
@@ -41,23 +41,25 @@ def inspect_preview(path):
 
 def main():
     from omni.catalog import add_inspection, load_catalog, remove_inspection
+    from omni.windows_runtime import assess_native_windows, launch_native_windows
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
     window = tk.Tk()
-    window.title("OMNI Preview | Explorador de aplicaciones")
-    window.geometry("760x550")
+    window.title("OMNI | Biblioteca de aplicaciones")
+    window.geometry("790x640")
     window.minsize(610, 450)
     window.configure(bg="#101827")
     heading = tk.Label(window, text="OMNI", font=("Segoe UI", 34, "bold"),
                        fg="#F1F5F9", bg="#101827")
     heading.pack(anchor="w", padx=30, pady=(22, 0))
-    tk.Label(window, text="Explora aplicaciones sin ejecutarlas", font=("Segoe UI", 13),
+    tk.Label(window, text="Explora archivos y abre aplicaciones Windows con tu permiso", font=("Segoe UI", 12),
              fg="#93C5FD", bg="#101827").pack(anchor="w", padx=32)
     output = tk.Text(window, wrap="word", font=("Consolas", 11), bg="#182437",
                      fg="#E2E8F0", relief="flat", padx=18, pady=18)
     output.pack(fill="both", expand=True, padx=30, pady=20)
     output.insert("1.0", "Selecciona un archivo .exe, .dll, ELF o .wasm para inspeccionarlo.\n\n"
-                  "Esta versión no ejecuta aplicaciones ni modifica tu sistema.")
+                  "Solo los .exe nativos de Windows pueden abrirse con confirmación explícita.\n"
+                  "Se ejecutan con tus permisos habituales: NO están aislados.")
     output.configure(state="disabled")
 
     catalog = tk.Listbox(window, bg="#182437", fg="#E2E8F0", selectbackground="#2563EB",
@@ -71,6 +73,68 @@ def main():
                 catalog.insert("end", f'{item["name"]}  ·  {item["format"]}  ·  {item["architecture"]}')
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             messagebox.showwarning("OMNI | Catálogo", str(exc))
+
+    running = []
+    process_status = tk.StringVar(value="Sin procesos iniciados por OMNI")
+    tk.Label(window, textvariable=process_status, font=("Segoe UI", 10),
+             fg="#93C5FD", bg="#101827").pack(pady=(0, 8))
+
+    def selected_record():
+        selection = catalog.curselection()
+        if not selection:
+            return None
+        items = load_catalog()
+        return items[selection[0]] if selection[0] < len(items) else None
+
+    def show_selected(_event=None):
+        try:
+            record = selected_record()
+            if record is None:
+                return
+            decision = assess_native_windows(record)
+            output.configure(state="normal")
+            output.delete("1.0", "end")
+            output.insert("1.0", json.dumps(
+                {"application": record, "native_windows": decision},
+                indent=2, ensure_ascii=False))
+            output.configure(state="disabled")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("OMNI | Biblioteca", str(exc))
+
+    catalog.bind("<<ListboxSelect>>", show_selected)
+
+    def launch_selected():
+        try:
+            record = selected_record()
+            if record is None:
+                messagebox.showinfo("OMNI", "Selecciona primero una aplicación de la biblioteca.")
+                return
+            decision = assess_native_windows(record)
+            if not decision["launch_available"]:
+                messagebox.showwarning("OMNI | Motor no disponible",
+                    "No existe un motor configurado para abrir este archivo.\n\n"
+                    + ", ".join(decision["reasons"]))
+                return
+            consent = messagebox.askyesno(
+                "OMNI | Confirmar ejecución nativa",
+                f'¿Abrir {record["name"]}?\n\nRuta: {record["path"]}\n\n'
+                "Esta aplicación se ejecutará directamente en Windows con "
+                "tus permisos habituales. NO hay aislamiento ni garantía "
+                "de seguridad. Abre solo aplicaciones en las que confíes.")
+            if not consent:
+                return
+            process = launch_native_windows(record, confirmed=True)
+            running.append((record["name"], process))
+            process_status.set(f'Iniciado: {record["name"]} (PID {process.pid})')
+        except (OSError, ValueError, PermissionError, json.JSONDecodeError) as exc:
+            messagebox.showerror("OMNI | No se pudo abrir", str(exc))
+
+    def update_process_status():
+        finished = [(name, proc) for name, proc in running if proc.poll() is not None]
+        for name, proc in finished:
+            running.remove((name, proc))
+            process_status.set(f'{name} finalizó (código {proc.returncode})')
+        window.after(1000, update_process_status)
 
     def remove_selected():
         selection = catalog.curselection()
@@ -106,7 +170,9 @@ def main():
     controls.pack(pady=(0, 18))
     ttk.Button(controls, text="Seleccionar archivo", command=choose).pack(side="left", padx=6)
     ttk.Button(controls, text="Quitar de biblioteca", command=remove_selected).pack(side="left", padx=6)
+    ttk.Button(controls, text="Abrir .exe de Windows", command=launch_selected).pack(side="left", padx=6)
     refresh_catalog()
+    update_process_status()
     window.mainloop()
 
 
