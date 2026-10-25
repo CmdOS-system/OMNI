@@ -22,6 +22,24 @@ def marker_seen(serial, nonce):
     return any(line.strip() == expected for line in serial.splitlines())
 
 
+def evaluate_guest_output(data, nonce, expected_sum, exit_code, timed_out):
+    """Fail closed on missing markers, panic, timeout, or abnormal QEMU exit."""
+    ready = marker_seen(data, nonce)
+    expected = ("OMNI_GUEST_TASK_RESULT_V1 nonce=" + nonce
+                + " value=" + str(expected_sum)).encode("ascii")
+    task = any(line.strip() == expected for line in data.splitlines())
+    banner = bool(re.search(rb"Linux version [0-9]", data))
+    panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
+    passed = ready and task and banner and not panic and not timed_out and exit_code == 0
+    return {
+        "kernel_banner_observed": banner,
+        "kernel_panic_observed": panic,
+        "userspace_marker_observed": ready,
+        "functional_task_observed": task,
+        "status": "GUEST_FUNCTIONAL_TASK_OBSERVED_UNATTESTED" if passed else "BLOCKED",
+    }
+
+
 def main():
     kernel = Path("/tmp/omni-guest-boot/vmlinuz")
     busybox = shutil.which("busybox")
@@ -74,24 +92,20 @@ def main():
             except subprocess.TimeoutExpired:
                 exit_code, timeout = None, True
         data = serial.read_bytes() if serial.exists() else b""
-        observed = marker_seen(data, nonce)
-        task_expected = ("OMNI_GUEST_TASK_RESULT_V1 nonce=" + nonce + " value=" + str(left + right)).encode()
-        task_observed = any(line.strip() == task_expected for line in data.splitlines())
-        banner = bool(re.search(rb"Linux version [0-9]", data))
+        checks = evaluate_guest_output(data, nonce, left + right, exit_code, timeout)
         report = {
             "schema": "omni.real_userspace_probe.v1",
-            "status": "GUEST_FUNCTIONAL_TASK_OBSERVED_UNATTESTED" if observed and banner and task_observed else "BLOCKED",
+            "status": checks["status"],
             "kernel_sha256": digest(kernel), "busybox_sha256": digest(busybox),
             "initramfs_sha256": digest(initrd), "serial_sha256": hashlib.sha256(data).hexdigest(),
-            "serial_bytes": len(data), "nonce": nonce, "kernel_banner_observed": banner,
-            "userspace_marker_observed": observed, "functional_task_observed": task_observed,
+            "serial_bytes": len(data), "nonce": nonce, **checks,
             "functional_task": "guest_shell_integer_addition", "qemu_exit_code": exit_code,
             "timed_out": timeout, "guest_attested": False,
             "third_party_app_executed": False, "compatibility_certified": False,
         }
     (out / "summary.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))
-    if not (observed and banner and task_observed):
+    if checks["status"] == "BLOCKED":
         raise RuntimeError("actual guest userspace marker not observed")
 
 
