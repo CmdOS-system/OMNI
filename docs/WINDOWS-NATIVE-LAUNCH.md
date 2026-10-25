@@ -22,3 +22,13 @@ Windows native .exe launch is not evidence of Linux/macOS/Android support.
 CI tests the launcher logic with a mocked process. The GUI is packaged by
 PyInstaller on a Windows runner, but interactive desktop execution still
 requires manual testing on a real Windows machine.
+
+## In-app process list and force stop
+
+OMNI now displays direct processes launched from its library with PID, running
+state and exit code. **Forzar cierre** requires another affirmative confirmation
+and calls `Popen.terminate()` on the selected OMNI-owned process handle only.
+On Windows this is a forced termination, not a graceful close. Unsaved data may
+be lost, children can remain alive, and closing OMNI does not stop apps.
+The list is in-memory and resets when OMNI closes. Tests use mocked process
+objects; real GUI interactions and termination require Windows manual testing.
