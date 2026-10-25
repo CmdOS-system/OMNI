@@ -19,6 +19,21 @@ def sha256(path):
     return h.hexdigest()
 
 
+def classify_console(data):
+    """Classify guest serial bytes without claiming a full OS boot."""
+    banner = bool(re.search(rb"Linux version [0-9]", data))
+    panic = bool(re.search(rb"Kernel panic - not syncing", data, re.I))
+    userspace = bool(re.search(rb"OMNI_GUEST_USERSPACE_READY_V1", data))
+    return {
+        "kernel_banner_observed": banner,
+        "kernel_panic_observed": panic,
+        "userspace_marker_observed": userspace,
+        "status": ("KERNEL_BANNER_WITH_PANIC_UNATTESTED" if banner and panic
+                   else "KERNEL_BANNER_OBSERVED_UNATTESTED" if banner
+                   else "BLOCKED"),
+    }
+
+
 def main():
     qemu = shutil.which("qemu-system-x86_64")
     kernel = Path("/tmp/omni-guest-boot/vmlinuz")
@@ -49,11 +64,11 @@ def main():
         "qemu_path": qemu, "kernel": str(kernel), "initrd": str(initrd),
         "kernel_sha256": sha256(kernel), "initrd_sha256": sha256(initrd),
         "serial_sha256": hashlib.sha256(data).hexdigest(),
-        "serial_bytes": len(data), "kernel_banner_observed": observed,
+        "serial_bytes": len(data), **classification,
         "timed_out": timed_out, "guest_userspace_verified": False,
         "guest_boot_attested": False, "third_party_app_executed": False,
         "compatibility_certified": False,
-        "status": "KERNEL_BANNER_OBSERVED_UNATTESTED" if observed else "BLOCKED"}
+        "qemu_stderr_sha256": sha256(stderr),\n        "guest_process_exit_code": None,\n        "status": classification["status"]}
     (dest / "summary.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     print(json.dumps(report, sort_keys=True, indent=2))
     if not observed:
