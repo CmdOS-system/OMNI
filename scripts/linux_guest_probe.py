@@ -68,7 +68,9 @@ def main():
         "timed_out": timed_out, "guest_userspace_verified": False,
         "guest_boot_attested": False, "third_party_app_executed": False,
         "compatibility_certified": False,
-        "qemu_stderr_sha256": sha256(stderr),\n        "guest_process_exit_code": None,\n        "status": classification["status"]}
+        "qemu_stderr_sha256": sha256(stderr),
+        "guest_process_exit_code": None,
+        "status": classification["status"]}
     (dest / "summary.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     print(json.dumps(report, sort_keys=True, indent=2))
     if not observed:
