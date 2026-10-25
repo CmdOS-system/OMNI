@@ -1,0 +1,55 @@
+name: OMNI combined boundary evidence gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/boundary_gate.py"
+      - "tests/test_boundary_gate.py"
+      - ".github/workflows/omni-combined-boundaries.yml"
+  workflow_dispatch:
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit test strict evidence composition
+        run: python3 -m unittest discover -s tests -p 'test_boundary_gate.py' -v
+      - name: Run actual fixed-command boundary probes
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          python3 -m omni.bwrap_probe > filesystem.json
+          python3 -m omni.network_probe > network.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from omni.boundary_gate import evaluate_boundaries
+          from omni.resource_gate import probe_limits
+          import os
+          parent = Path('/sys/fs/cgroup/omni-delegated')
+          if parent.is_dir() and os.access(parent, os.W_OK):
+              resource = probe_limits(str(parent))
+          else:
+              resource = {'schema':'omni.resource_gate.v1', 'status':'NOT_DELEGATED'}
+          Path('resources.json').write_text(json.dumps(resource, indent=2))
+          with open('filesystem.json') as f: fs = json.load(f)
+          with open('network.json') as f: net = json.load(f)
+          result = evaluate_boundaries(fs, net, resource)
+          Path('combined.json').write_text(json.dumps(result, indent=2))
+          print(json.dumps(result, indent=2))
+          assert result['checks']['filesystem_boundary'], result
+          assert result['checks']['network_boundary'], result
+          assert result['execution_authorized'] is False
+          if not result['checks']['resource_limits']:
+              assert result['status'] == 'BLOCKED_INCOMPLETE_EVIDENCE'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-combined-boundary-evidence
+          path: |
+            filesystem.json
+            network.json
+            resources.json
+            combined.json
