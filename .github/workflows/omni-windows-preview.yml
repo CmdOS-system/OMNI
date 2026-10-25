@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - "omni/windows_preview.py"
+      - "README.md"
+      - "docs/ARCHITECTURE.md"
+      - "engine/loader/src/package_inspector.rs"
+      - "engine/loader/tests/make_fixtures.py"
       - "tests/test_windows_preview.py"
       - "tests/test_catalog.py"
       - "omni/catalog.py"
@@ -60,10 +64,33 @@ jobs:
         run: python -m unittest discover -s tests -p test_launch_coordinator.py -v
       - name: Real Windows native execution smoke (whoami.exe)
         run: python -m unittest discover -s tests -p test_windows_native_smoke.py -v
+      - name: Verify OMNI-only branding in current source
+        shell: pwsh
+        run: |
+          $files = @(
+            "README.md",
+            "docs/ARCHITECTURE.md",
+            "engine/loader/src/package_inspector.rs",
+            "engine/loader/tests/make_fixtures.py"
+          )
+          $matches = Select-String -Path $files -Pattern 'nexus|nessus' -AllMatches
+          if ($matches) {
+            $matches | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber): $($_.Line)" }
+            throw "Legacy branding detected in OMNI source"
+          }
       - name: Package standalone GUI
         run: |
           python -m pip install pyinstaller
           python -m PyInstaller --onefile --windowed --paths . --name OMNI-Preview omni/windows_preview.py
+      - name: Verify packaged Windows executable
+        shell: pwsh
+        run: |
+          $exe = "dist/OMNI-Preview.exe"
+          if (-not (Test-Path $exe)) { throw "OMNI executable missing" }
+          $file = Get-Item $exe
+          if ($file.Length -le 0) { throw "OMNI executable is empty" }
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+          Write-Host "OMNI Windows executable size: $($file.Length) bytes"
       - uses: actions/upload-artifact@v4
         with:
           name: OMNI-Preview-Windows
