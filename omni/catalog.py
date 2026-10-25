@@ -50,6 +50,8 @@ def backup_catalog(path=None):
             with destination:
                 with path.open("rb") as source:
                     shutil.copyfileobj(source, destination)
+                destination.flush()
+                os.fsync(destination.fileno())
             return backup
         except Exception:
             backup.unlink(missing_ok=True)
