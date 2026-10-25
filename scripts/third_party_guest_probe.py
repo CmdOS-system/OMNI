@@ -91,7 +91,11 @@ def main():
             "#!/bin/busybox sh\n"
             "echo OMNI_THIRD_PARTY_BEGIN_V1 nonce=" + nonce + " > /dev/console\n"
             "/usr/bin/hello > /hello.stdout 2>/hello.stderr\n"
-            "rc=$?\n"\n            "echo OMNI_HELLO_OUTPUT_BEGIN nonce=" + nonce + " > /dev/console\n"\n            "/bin/busybox cat /hello.stdout > /dev/console\n"\n            "echo OMNI_HELLO_OUTPUT_END nonce=" + nonce + " > /dev/console\n"\n            "/bin/busybox cat /hello.stderr > /dev/console\n"
+            "rc=$?\n"
+            "echo OMNI_HELLO_OUTPUT_BEGIN nonce=" + nonce + " > /dev/console\n"
+            "/bin/busybox cat /hello.stdout > /dev/console\n"
+            "echo OMNI_HELLO_OUTPUT_END nonce=" + nonce + " > /dev/console\n"
+            "/bin/busybox cat /hello.stderr > /dev/console\n"
             "echo OMNI_THIRD_PARTY_EXIT_V1 nonce=" + nonce + " code=$rc > /dev/console\n"
             "/bin/busybox poweroff -f\n"
         )
