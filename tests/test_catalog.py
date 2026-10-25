@@ -1,7 +1,8 @@
 import tempfile
+import json
 from pathlib import Path
 import unittest
-from omni.catalog import add_inspection, load_catalog, remove_inspection
+from omni.catalog import add_inspection, backup_catalog, load_catalog, remove_inspection
 
 
 class CatalogTests(unittest.TestCase):
@@ -23,11 +24,24 @@ class CatalogTests(unittest.TestCase):
             for field in valid:
                 invalid = dict(valid)
                 invalid.pop(field)
-                db.write_text(__import__("json").dumps([invalid]), encoding="utf-8")
+                db.write_text(json.dumps([invalid]), encoding="utf-8")
                 with self.subTest(field=field), self.assertRaises(ValueError):
                     load_catalog(db)
             db.write_text(__import__("json").dumps([valid]), encoding="utf-8")
             self.assertEqual(load_catalog(db), [valid])
+
+    def test_backup_preserves_corrupt_json_without_overwriting(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "catalog.json"
+            db.write_bytes(b"{not valid json")
+            first = backup_catalog(db)
+            self.assertEqual(first.read_bytes(), db.read_bytes())
+            db.write_bytes(b"changed content")
+            second = backup_catalog(db)
+            self.assertNotEqual(first, second)
+            self.assertEqual(first.read_bytes(), b"{not valid json")
+            self.assertEqual(second.read_bytes(), b"changed content")
+            self.assertEqual(db.read_bytes(), b"changed content")
 
     def test_corrupt_catalog_fails(self):
         with tempfile.TemporaryDirectory() as td:
