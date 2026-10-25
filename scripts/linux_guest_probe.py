@@ -58,7 +58,8 @@ def main():
             timed_out = True
     data = serial.read_bytes() if serial.exists() else b""
     # Require recognizable Linux kernel console output, not just QEMU process start.
-    observed = bool(re.search(rb"Linux version [0-9]", data))
+    classification = classify_console(data)
+    observed = classification["kernel_banner_observed"]
     report = {
         "schema": "omni.real_linux_guest_probe.v1",
         "qemu_path": qemu, "kernel": str(kernel), "initrd": str(initrd),
