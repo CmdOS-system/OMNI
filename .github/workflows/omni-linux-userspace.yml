@@ -1,0 +1,32 @@
+name: OMNI real Linux userspace execution (experimental)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  guest-userspace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install real Linux guest prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 linux-image-virtual busybox-static cpio
+          sudo install -d -m 0755 /tmp/omni-guest-boot
+          sudo install -m 0644 "$(readlink -f /boot/vmlinuz)" /tmp/omni-guest-boot/vmlinuz
+          sha256sum /tmp/omni-guest-boot/vmlinuz "$(command -v busybox)"
+      - name: Execute guest init process under QEMU
+        run: |
+          set -euo pipefail
+          python3 -m scripts.linux_userspace_probe 2>&1 | tee omni-userspace-probe.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-real-userspace-evidence
+          path: |
+            omni-userspace-probe.log
+            omni-userspace-evidence/
