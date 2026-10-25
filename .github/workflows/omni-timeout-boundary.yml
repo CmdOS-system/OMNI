@@ -1,0 +1,35 @@
+name: OMNI sandbox wall timeout enforcement
+on:
+  push:
+    branches: [main]
+    paths:
+      - "omni/timeout_probe.py"
+      - "tests/test_timeout_probe.py"
+      - ".github/workflows/omni-timeout-boundary.yml"
+  workflow_dispatch:
+jobs:
+  timeout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap
+      - name: Require wall timeout and process reaping
+        run: |
+          set -o pipefail
+          python3 -m omni.timeout_probe | tee omni-timeout-evidence.json
+          python3 - <<'PY'
+          import json
+          with open('omni-timeout-evidence.json') as f:
+              data = json.load(f)
+          assert data['status'] == 'WALL_TIMEOUT_ENFORCED', data
+          assert data['timeout_triggered'] is True
+          assert data['process_reaped'] is True
+          assert data['execution_authorized'] is False
+          PY
+      - run: python3 -m unittest discover -s tests -p 'test_timeout_probe.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-timeout-evidence
+          path: omni-timeout-evidence.json

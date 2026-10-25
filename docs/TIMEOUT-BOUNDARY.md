@@ -1,0 +1,1 @@
+Wall-time enforcement probe: fixed /bin/sleep inside Bubblewrap, deadline enforced from host via subprocess timeout, process group SIGKILL and wait/reap. This demonstrates only a trusted probe's wall-time cutoff, not CPU quota, memory limit, arbitrary child cleanup, or safe execution of unknown apps. Execution remains unauthorized.
