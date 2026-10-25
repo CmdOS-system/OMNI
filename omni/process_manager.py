@@ -27,7 +27,11 @@ class NativeProcessManager:
         self._max_history = max_history
 
     def register(self, name, process):
-        if not isinstance(name, str) or not name or not hasattr(process, "pid"):
+        if (not isinstance(name, str) or not name
+                or not isinstance(getattr(process, "pid", None), int)
+                or isinstance(process.pid, bool) or process.pid <= 0
+                or not callable(getattr(process, "poll", None))
+                or not callable(getattr(process, "terminate", None))):
             raise ValueError("Invalid process registration")
         session = _Session(self._next_id, name, process)
         self._next_id += 1
