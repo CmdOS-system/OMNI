@@ -21,14 +21,10 @@ def sha256(path):
 
 def main():
     qemu = shutil.which("qemu-system-x86_64")
-    kernels = sorted(Path("/boot").glob("vmlinuz-*"))
-    initrds = sorted(Path("/boot").glob("initrd.img-*"))
-    pairs = [(k, Path("/boot") / ("initrd.img-" + k.name[len("vmlinuz-"):]))
-             for k in kernels]
-    pairs = [(k, i) for k, i in pairs if i in initrds and k.is_file() and i.is_file()]
-    if not qemu or not pairs:
-        raise RuntimeError("real QEMU and matching Ubuntu kernel/initramfs required")
-    kernel, initrd = pairs[-1]
+    kernel = Path("/tmp/omni-guest-boot/vmlinuz")
+    initrd = Path("/tmp/omni-guest-boot/initrd.img")
+    if not qemu or not kernel.is_file() or not initrd.is_file():
+        raise RuntimeError("real QEMU and staged readable Ubuntu kernel/initramfs required")
     dest = Path("omni-linux-guest-evidence")
     dest.mkdir(exist_ok=False)
     serial = dest / "serial.log"
