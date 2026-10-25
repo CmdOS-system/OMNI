@@ -323,8 +323,7 @@ def main():
         name, runtime, distribution, process = payload
         label = f"{name} [WSL2: {distribution}]" if runtime == "wsl2-elf" else name
         try:
-            process_manager.register(label, process)
-            refresh_processes()
+            session_id = process_manager.register(label, process)
         except Exception as exc:
             # The child may already be running: never silently orphan it.
             launch_status.set(f"Proceso iniciado (PID {process.pid}), sin seguimiento")
@@ -333,7 +332,16 @@ def main():
                 f"El proceso {process.pid} se inició, pero no pudo registrarse: "
                 f"{type(exc).__name__}. Comprueba el Administrador de tareas.")
             return
-        launch_status.set(f"Iniciado con {runtime}: {name} (PID Windows {process.pid})")
+        launch_status.set(
+            f"Iniciado con {runtime}: {name} (PID Windows {process.pid}, sesión {session_id})")
+        try:
+            refresh_processes()
+        except Exception as exc:
+            # Registration succeeded; a UI refresh failure must not claim otherwise.
+            messagebox.showwarning(
+                "OMNI | Vista de procesos",
+                f"El proceso {process.pid} está registrado, pero no se pudo "
+                f"actualizar la vista: {type(exc).__name__}.")
 
     def launch_recommended():
         try:
