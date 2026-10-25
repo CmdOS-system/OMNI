@@ -1,0 +1,31 @@
+name: OMNI native guest ELF program (experimental)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  native-guest-elf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install real guest prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 linux-image-virtual busybox-static cpio gcc
+          sudo install -d -m 0755 /tmp/omni-guest-boot
+          sudo install -m 0644 "$(readlink -f /boot/vmlinuz)" /tmp/omni-guest-boot/vmlinuz
+      - name: Compile and execute native ELF inside Linux guest
+        run: |
+          set -euo pipefail
+          python3 -m scripts.native_guest_elf_probe 2>&1 | tee omni-native-guest.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omni-native-guest-elf-evidence
+          path: |
+            omni-native-guest.log
+            omni-native-guest-evidence/
