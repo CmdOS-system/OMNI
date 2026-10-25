@@ -40,6 +40,18 @@ class LibraryStatusTests(unittest.TestCase):
         self.assertEqual(scan_catalog_statuses(records, checker), {
             "bad": "unavailable", "good": "unchanged", "unexpected": "unavailable"})
 
+    def test_malformed_entries_do_not_abort_scan(self):
+        records = [None, {"path": ""}, {"path": 123},
+                   {"path": "bad-response"}, {"path": "good"}]
+
+        def checker(record):
+            if record["path"] == "bad-response":
+                return None
+            return {"status": "unchanged"}
+
+        self.assertEqual(scan_catalog_statuses(records, checker),
+                         {"bad-response": "unavailable", "good": "unchanged"})
+
     def test_row_labels_do_not_claim_safety(self):
         record = {"name": "sample.exe", "format": "PE", "architecture": "x86_64"}
         self.assertIn("Comprobando", format_catalog_row(record))
