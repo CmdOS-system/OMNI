@@ -43,6 +43,9 @@ def main():
     from omni.catalog import add_inspection, load_catalog, remove_inspection
     from omni.windows_runtime import assess_native_windows, launch_native_windows
     from omni.process_manager import NativeProcessManager
+    from omni.wsl2_discovery import discover_wsl2, assess_elf_wsl
+    import queue
+    import threading
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
     window = tk.Tk()
@@ -187,6 +190,43 @@ def main():
         process_status.set(f"Procesos OMNI: {active} activos · {len(rows)} registrados")
         window.after(1000, update_process_status)
 
+    wsl_results = queue.Queue()
+
+    def poll_wsl2():
+        try:
+            discovery = wsl_results.get_nowait()
+        except queue.Empty:
+            window.after(100, poll_wsl2)
+            return
+        wsl_button.configure(state="normal")
+        try:
+            record = selected_record()
+            display = {"wsl2_discovery": discovery}
+            if record is not None:
+                display["selected_application"] = record["name"]
+                display["linux_runtime"] = assess_elf_wsl(record, discovery)
+            output.configure(state="normal")
+            output.delete("1.0", "end")
+            output.insert("1.0", json.dumps(display, indent=2, ensure_ascii=False))
+            output.configure(state="disabled")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("OMNI | WSL2", str(exc))
+
+    def check_wsl2():
+        wsl_button.configure(state="disabled")
+        process_status.set("Detectando WSL2 (solo consulta, sin ejecutar Linux)...")
+
+        def worker():
+            try:
+                wsl_results.put(discover_wsl2())
+            except Exception as exc:
+                # Never leave the UI blocked if the host probe fails unexpectedly.
+                wsl_results.put({"status": "PROBE_ERROR", "error_type": type(exc).__name__,
+                                 "execution_authorized": False, "execution_performed": False})
+
+        threading.Thread(target=worker, daemon=True).start()
+        window.after(100, poll_wsl2)
+
     def remove_selected():
         selection = catalog.curselection()
         if not selection:
@@ -223,6 +263,8 @@ def main():
     ttk.Button(controls, text="Quitar de biblioteca", command=remove_selected).pack(side="left", padx=6)
     ttk.Button(controls, text="Abrir .exe de Windows", command=launch_selected).pack(side="left", padx=6)
     ttk.Button(controls, text="Forzar cierre", command=stop_selected_process).pack(side="left", padx=6)
+    wsl_button = ttk.Button(window, text="Detectar motor Linux (WSL2)", command=check_wsl2)
+    wsl_button.pack(pady=(0, 12))
     refresh_catalog()
     update_process_status()
     window.mainloop()

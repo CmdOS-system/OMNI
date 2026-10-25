@@ -10,6 +10,8 @@ on:
       - "omni/windows_runtime.py"
       - "tests/test_windows_runtime.py"
       - "omni/process_manager.py"
+      - "omni/wsl2_discovery.py"
+      - "tests/test_wsl2_discovery.py"
       - "tests/test_process_manager.py"
       - ".github/workflows/omni-windows-preview.yml"
   workflow_dispatch:
@@ -29,6 +31,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_windows_runtime.py -v
       - name: Process manager unit tests
         run: python -m unittest discover -s tests -p test_process_manager.py -v
+      - name: WSL2 discovery unit tests
+        run: python -m unittest discover -s tests -p test_wsl2_discovery.py -v
       - name: Package standalone GUI
         run: |
           python -m pip install pyinstaller
