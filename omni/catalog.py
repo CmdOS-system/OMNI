@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import shutil
 
 
 def default_catalog_path():
@@ -26,6 +27,32 @@ def load_catalog(path=None):
         )):
             raise ValueError("Invalid OMNI catalog entry")
     return data
+
+
+def backup_catalog(path=None):
+    """Create a separate, timestamp-free backup of the current catalog.
+
+    Does not parse or modify the original, so malformed JSON is preserved.
+    Existing backups are never overwritten.
+    """
+    path = Path(path) if path is not None else default_catalog_path()
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Exclusive creation avoids overwriting an earlier recovery copy.
+    for index in range(1, 1001):
+        backup = path.with_name(f"{path.name}.backup-{index:04d}")
+        try:
+            with backup.open("xb") as destination:
+                with path.open("rb") as source:
+                    shutil.copyfileobj(source, destination)
+            return backup
+        except FileExistsError:
+            continue
+        except Exception:
+            backup.unlink(missing_ok=True)
+            raise
+    raise FileExistsError("No available OMNI catalog backup filename")
 
 
 def save_catalog(entries, path=None):
