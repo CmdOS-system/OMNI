@@ -6,7 +6,9 @@ class ThirdPartyGuestGateTests(unittest.TestCase):
     def setUp(self):
         self.serial = (b"Linux version 6.8.0\n"
                        b"OMNI_THIRD_PARTY_BEGIN_V1 nonce=abc\n"
+                       b"OMNI_HELLO_OUTPUT_BEGIN nonce=abc\n"
                        b"Hello, world!\n"
+                       b"OMNI_HELLO_OUTPUT_END nonce=abc\n"
                        b"OMNI_THIRD_PARTY_EXIT_V1 nonce=abc code=0\n")
 
     def check(self, data=None, nonce="abc", rc=0, timed_out=False):
@@ -16,8 +18,10 @@ class ThirdPartyGuestGateTests(unittest.TestCase):
         self.assertEqual(self.check(), "THIRD_PARTY_GNU_HELLO_EXECUTED_UNATTESTED")
 
     def test_unframed_hello_is_rejected(self):
-        self.assertEqual(self.check(data=self.serial.replace(b"OMNI_HELLO_OUTPUT_BEGIN nonce=abc\
-", b"")), "BLOCKED")
+        self.assertEqual(
+            self.check(data=self.serial.replace(b"OMNI_HELLO_OUTPUT_BEGIN nonce=abc\n", b"")),
+            "BLOCKED",
+        )
 
     def test_wrong_nonce(self):
         self.assertEqual(self.check(nonce="xyz"), "BLOCKED")
