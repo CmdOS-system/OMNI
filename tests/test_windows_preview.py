@@ -1,7 +1,10 @@
+import json
+import os
 import tempfile
+from unittest import mock
 from pathlib import Path
 import unittest
-from omni.windows_preview import inspect_preview
+from omni.windows_preview import inspect_preview, _self_test_entrypoint
 
 
 class WindowsPreviewTests(unittest.TestCase):
@@ -50,3 +53,25 @@ class WindowsPreviewTests(unittest.TestCase):
             result = inspect_preview(path)
             self.assertEqual(result["format"], "UNKNOWN")
             self.assertFalse(result["execution_performed"])
+
+    def test_self_test_writes_success_report(self):
+        with tempfile.TemporaryDirectory() as td:
+            report = Path(td) / "result.json"
+            with mock.patch.dict(os.environ, {"OMNI_SELF_TEST_REPORT": str(report)}):
+                with mock.patch("omni.windows_preview.packaged_self_test", return_value=0):
+                    self.assertEqual(_self_test_entrypoint("runtime"), 0)
+            self.assertEqual(json.loads(report.read_text(encoding="utf-8")),
+                             {"status": "passed", "kind": "runtime"})
+
+    def test_gui_self_test_failure_is_reported_without_traceback(self):
+        with tempfile.TemporaryDirectory() as td:
+            report = Path(td) / "result.json"
+            with mock.patch.dict(os.environ, {"OMNI_SELF_TEST_REPORT": str(report)}):
+                with mock.patch("omni.windows_preview.packaged_gui_self_test",
+                                side_effect=RuntimeError("Tk initialization failed")):
+                    self.assertEqual(_self_test_entrypoint("gui"), 1)
+            result = json.loads(report.read_text(encoding="utf-8"))
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["kind"], "gui")
+            self.assertEqual(result["error_type"], "RuntimeError")
+            self.assertIn("Tk initialization failed", result["message"])
