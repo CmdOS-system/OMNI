@@ -106,11 +106,21 @@ jobs:
         shell: pwsh
         run: |
           $exe = (Resolve-Path "dist/OMNI-Preview.exe").Path
-          $process = Start-Process -FilePath $exe -ArgumentList "--self-test" -PassThru -Wait
-          if ($process.ExitCode -ne 0) {
-            throw "OMNI packaged runtime self-test failed with exit code $($process.ExitCode)"
+          $process = Start-Process -FilePath $exe -ArgumentList "--self-test" -PassThru
+          try {
+            $process | Wait-Process -Timeout 60 -ErrorAction Stop
+            $process.Refresh()
+            if ($process.ExitCode -ne 0) {
+              throw "OMNI packaged runtime self-test failed with exit code $($process.ExitCode)"
+            }
+            Write-Host "OMNI packaged runtime self-test passed"
           }
-          Write-Host "OMNI packaged runtime self-test passed"
+          finally {
+            $process.Refresh()
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
       - name: Smoke test packaged OMNI GUI on Windows
         shell: pwsh
         run: |
