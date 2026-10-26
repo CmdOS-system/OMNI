@@ -19,17 +19,24 @@ def inspect_preview(path):
         digest = hashlib.sha256(head)
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
+        # The PE signature may lie beyond the initial 4 KiB DOS stub.
+        # Read it from the same file handle, without loading the full file.
+        pe_header = b""
+        if head[:2] == b"MZ" and len(head) >= 64:
+            pe_offset = struct.unpack_from("<I", head, 60)[0]
+            if pe_offset <= meta.st_size - 24:
+                stream.seek(pe_offset)
+                pe_header = stream.read(24)
     fmt, arch = "UNKNOWN", "UNKNOWN"
     if head[:4] == b"\x7fELF" and len(head) >= 20:
         fmt = "ELF"
         arch = {62: "x86_64", 3: "x86", 183: "aarch64"}.get(
             int.from_bytes(head[18:20], "little" if head[5] == 1 else "big"), "UNKNOWN")
     elif head[:2] == b"MZ" and len(head) >= 64:
-        off = struct.unpack_from("<I", head, 60)[0]
-        if off + 24 <= len(head) and head[off:off+4] == b"PE\0\0":
+        if len(pe_header) == 24 and pe_header[:4] == b"PE\0\0":
             fmt = "PE"
             arch = {0x8664: "x86_64", 0x14c: "x86", 0xaa64: "aarch64"}.get(
-                struct.unpack_from("<H", head, off + 4)[0], "UNKNOWN")
+                struct.unpack_from("<H", pe_header, 4)[0], "UNKNOWN")
     elif head[:8] == b"\0asm\x01\0\0\0":
         fmt, arch = "WASM", "wasm32"
     return {"schema": "omni.windows_preview.v1", "name": path.name,
