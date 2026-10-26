@@ -102,23 +102,34 @@ jobs:
             "- SHA-256: $hash"
             "- Validation: tests and package checks must pass before publishing"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-      - name: Validate frozen OMNI runtime imports and executable integrity
+      - name: Validate packaged runtime and Tcl/Tk GUI initialization
         shell: pwsh
         run: |
           $exe = (Resolve-Path "dist/OMNI-Preview.exe").Path
-          $process = Start-Process -FilePath $exe -ArgumentList "--self-test" -PassThru
-          try {
-            $process | Wait-Process -Timeout 60 -ErrorAction Stop
-            $process.Refresh()
-            if ($process.ExitCode -ne 0) {
-              throw "OMNI packaged runtime self-test failed with exit code $($process.ExitCode)"
+          $checks = @(
+            @{ Name = "runtime"; Argument = "--self-test" },
+            @{ Name = "gui"; Argument = "--gui-self-test" }
+          )
+          foreach ($check in $checks) {
+            $env:OMNI_SELF_TEST_REPORT = Join-Path $env:RUNNER_TEMP ("omni-" + $check.Name + "-self-test.json")
+            $process = Start-Process -FilePath $exe -ArgumentList $check.Argument -PassThru
+            try {
+              $process | Wait-Process -Timeout 60 -ErrorAction Stop
+              $process.Refresh()
+              if (-not (Test-Path $env:OMNI_SELF_TEST_REPORT)) {
+                throw "OMNI $($check.Name) self-test produced no diagnostic report"
+              }
+              $report = Get-Content $env:OMNI_SELF_TEST_REPORT -Raw | ConvertFrom-Json
+              if ($process.ExitCode -ne 0 -or $report.status -ne "passed") {
+                throw "OMNI $($check.Name) self-test failed: $(Get-Content $env:OMNI_SELF_TEST_REPORT -Raw)"
+              }
+              Write-Host "OMNI $($check.Name) packaged self-test passed"
             }
-            Write-Host "OMNI packaged runtime self-test passed"
-          }
-          finally {
-            $process.Refresh()
-            if (-not $process.HasExited) {
-              Stop-Process -Id $process.Id -Force
+            finally {
+              $process.Refresh()
+              if (-not $process.HasExited) {
+                Stop-Process -Id $process.Id -Force
+              }
             }
           }
       - name: Smoke test packaged OMNI GUI on Windows
@@ -148,3 +159,11 @@ jobs:
             dist/OMNI-Preview.exe
             dist/OMNI-Preview.exe.sha256
           if-no-files-found: error
+
+      - name: Upload packaged self-test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OMNI-Preview-Diagnostics
+          path: ${{ runner.temp }}/omni-*-self-test.json
+          if-no-files-found: warn
