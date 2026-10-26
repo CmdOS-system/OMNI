@@ -102,6 +102,26 @@ jobs:
             "- SHA-256: $hash"
             "- Validation: tests and package checks must pass before publishing"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+      - name: Smoke test packaged OMNI GUI on Windows
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/OMNI-Preview.exe").Path
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            Start-Sleep -Seconds 8
+            $process.Refresh()
+            if ($process.HasExited) {
+              throw "OMNI packaged GUI exited unexpectedly with code $($process.ExitCode)"
+            }
+            Write-Host "OMNI packaged GUI started and remained running (PID $($process.Id))"
+          }
+          finally {
+            $process.Refresh()
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+              $process.WaitForExit(10000) | Out-Null
+            }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: OMNI-Preview-Windows
