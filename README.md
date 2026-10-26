@@ -41,6 +41,15 @@ Write-Host "OMNI: integridad verificada"
 
 5. Ejecuta `OMNI-Preview.exe` en Windows. No es necesario instalar Python para abrir el ejecutable empaquetado.
 
+**Descarga directa mediante GitHub Releases (opcional):** si tienes permisos para
+ejecutar el workflow, selecciona **Run workflow** y activa
+`publish_release`. Solo después de superar las pruebas Windows y verificar
+la huella SHA-256, el workflow publicará una **pre-release** con el EXE y
+su archivo de comprobación en [Releases](https://github.com/CmdOS-system/OMNI/releases).
+No se crea ninguna release automáticamente en cada push. Si la ejecución
+falla, no se publica una versión nueva. Una release es una vista previa
+experimental, no una certificación de compatibilidad.
+
 **Alcance real:** esta versión es una vista previa experimental de la biblioteca, la inspección de archivos y la ejecución nativa autorizada de programas Windows compatibles con el propio sistema. No ejecuta de forma general aplicaciones de otros sistemas operativos ni garantiza compatibilidad, aislamiento o seguridad. No descargues ejecutables de procedencia desconocida para probarla.
 
 **Estado de compilación:** la existencia del workflow no implica que haya un artefacto disponible; comprueba que la ejecución figure como correcta antes de descargar.
