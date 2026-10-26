@@ -193,7 +193,7 @@ jobs:
           if-no-files-found: warn
 
   publish-preview:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_release == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-omni-preview-v0.1]')) }}
     needs: windows-preview
     runs-on: ubuntu-latest
     permissions:
@@ -215,8 +215,8 @@ jobs:
       - name: Publish opt-in OMNI Windows prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: omni-preview-${{ github.run_number }}
-          name: OMNI Windows Preview ${{ github.run_number }}
+          tag_name: ${{ github.event_name == 'push' && 'omni-preview-v0.1' || format('omni-preview-{0}', github.run_number) }}
+          name: ${{ github.event_name == 'push' && 'OMNI Preview v0.1 (Windows)' || format('OMNI Windows Preview {0}', github.run_number) }}
           prerelease: true
           generate_release_notes: false
           body: |
