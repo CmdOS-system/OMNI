@@ -32,7 +32,7 @@ class WindowsPreviewTests(unittest.TestCase):
             payload = bytearray(256)
             payload[:2] = b"MZ"
             payload[60:64] = (128).to_bytes(4, "little")
-            payload[128:132] = b"PE\\0\\0"
+            payload[128:132] = b"PE\0\0"
             payload[132:134] = (0x8664).to_bytes(2, "little")
             path.write_bytes(payload)
             result = inspect_preview(path)
