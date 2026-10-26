@@ -75,3 +75,25 @@ class WindowsPreviewTests(unittest.TestCase):
             self.assertEqual(result["kind"], "gui")
             self.assertEqual(result["error_type"], "RuntimeError")
             self.assertIn("Tk initialization failed", result["message"])
+
+    def test_app_self_test_invokes_complete_desktop_startup(self):
+        with tempfile.TemporaryDirectory() as td:
+            report = Path(td) / "app-result.json"
+            with mock.patch.dict(os.environ, {"OMNI_SELF_TEST_REPORT": str(report)}):
+                with mock.patch("omni.windows_preview.main") as desktop:
+                    self.assertEqual(_self_test_entrypoint("app"), 0)
+            desktop.assert_called_once_with(smoke_test=True)
+            self.assertEqual(json.loads(report.read_text(encoding="utf-8")),
+                             {"status": "passed", "kind": "app"})
+
+    def test_app_self_test_reports_desktop_startup_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            report = Path(td) / "app-failure.json"
+            with mock.patch.dict(os.environ, {"OMNI_SELF_TEST_REPORT": str(report)}):
+                with mock.patch("omni.windows_preview.main",
+                                side_effect=RuntimeError("Desktop initialization failed")):
+                    self.assertEqual(_self_test_entrypoint("app"), 1)
+            result = json.loads(report.read_text(encoding="utf-8"))
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["kind"], "app")
+            self.assertEqual(result["error_type"], "RuntimeError")
