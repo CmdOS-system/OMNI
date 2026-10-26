@@ -97,3 +97,18 @@ class WindowsPreviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "failed")
             self.assertEqual(result["kind"], "app")
             self.assertEqual(result["error_type"], "RuntimeError")
+
+    def test_pe_signature_beyond_first_four_kib(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "large-stub.exe"
+            offset = 8192
+            payload = bytearray(offset + 24)
+            payload[:2] = b"MZ"
+            payload[60:64] = offset.to_bytes(4, "little")
+            payload[offset:offset + 4] = b"PE\x00\x00"
+            payload[offset + 4:offset + 6] = (0x8664).to_bytes(2, "little")
+            path.write_bytes(payload)
+            result = inspect_preview(path)
+            self.assertEqual(result["format"], "PE")
+            self.assertEqual(result["architecture"], "x86_64")
+            self.assertFalse(result["execution_performed"])
