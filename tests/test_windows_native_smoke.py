@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from omni.process_manager import NativeProcessManager
-from omni.windows_preview import inspect_preview
+from omni.windows_preview import inspect_preview, packaged_self_test
 from omni.windows_runtime import assess_native_windows, launch_native_windows
 
 
@@ -47,3 +47,7 @@ class WindowsNativeSmokeTests(unittest.TestCase):
             copy.write_bytes(b"changed after inspection")
             with self.assertRaisesRegex(ValueError, "changed"):
                 launch_native_windows(record, confirmed=True)
+
+    def test_runtime_self_test_on_real_windows_python(self):
+        """The same read-only self-test also runs before packaging."""
+        self.assertEqual(packaged_self_test(), 0)
