@@ -32,6 +32,12 @@ on:
       - "tests/test_process_manager.py"
       - ".github/workflows/omni-windows-preview.yml"
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish a downloadable prerelease only after Windows checks pass"
+        required: false
+        type: boolean
+        default: false
 jobs:
   windows-preview:
     runs-on: windows-latest
@@ -184,3 +190,39 @@ jobs:
           name: OMNI-Preview-Diagnostics
           path: ${{ runner.temp }}/omni-*-self-test.json
           if-no-files-found: warn
+
+  publish-preview:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+    needs: windows-preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows Preview artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OMNI-Preview-Windows
+          path: release
+      - name: Verify release payload and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s release/OMNI-Preview.exe
+          test -s release/OMNI-Preview.exe.sha256
+          cd release
+          sha256sum --check OMNI-Preview.exe.sha256
+      - name: Publish opt-in OMNI Windows prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: omni-preview-${{ github.run_number }}
+          name: OMNI Windows Preview ${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Experimental OMNI Windows Preview. Download OMNI-Preview.exe and
+            OMNI-Preview.exe.sha256. Verify the SHA-256 checksum before opening.
+            This preview is not a general cross-platform compatibility layer.
+          files: |
+            release/OMNI-Preview.exe
+            release/OMNI-Preview.exe.sha256
+          fail_on_unmatched_files: true
