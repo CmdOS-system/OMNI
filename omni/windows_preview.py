@@ -530,8 +530,50 @@ def packaged_self_test():
     return 0
 
 
+def packaged_gui_self_test():
+    """Exercise bundled Tcl/Tk initialization without launching user files."""
+    import tkinter as tk
+    window = tk.Tk()
+    try:
+        window.title("OMNI | GUI self-test")
+        window.update_idletasks()
+        window.update()
+        if not window.winfo_exists():
+            raise RuntimeError("OMNI Tk window was not created")
+    finally:
+        window.destroy()
+    return 0
+
+
+def _self_test_entrypoint(kind):
+    """Write a machine-readable diagnostic even in a --windowed executable."""
+    report = os.environ.get("OMNI_SELF_TEST_REPORT")
+    try:
+        if kind == "runtime":
+            packaged_self_test()
+        elif kind == "gui":
+            packaged_gui_self_test()
+        else:
+            raise ValueError("Unknown self-test kind")
+        outcome = {"status": "passed", "kind": kind}
+        exit_code = 0
+    except Exception as exc:
+        outcome = {"status": "failed", "kind": kind,
+                   "error_type": type(exc).__name__, "message": str(exc)}
+        exit_code = 1
+    if report:
+        try:
+            Path(report).write_text(json.dumps(outcome, ensure_ascii=False),
+                                    encoding="utf-8")
+        except OSError:
+            return 1
+    return exit_code
+
+
 if __name__ == "__main__":
     import sys
     if "--self-test" in sys.argv[1:]:
-        sys.exit(packaged_self_test())
+        sys.exit(_self_test_entrypoint("runtime"))
+    if "--gui-self-test" in sys.argv[1:]:
+        sys.exit(_self_test_entrypoint("gui"))
     main()
