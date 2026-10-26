@@ -102,6 +102,15 @@ jobs:
             "- SHA-256: $hash"
             "- Validation: tests and package checks must pass before publishing"
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+      - name: Validate frozen OMNI runtime imports and executable integrity
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/OMNI-Preview.exe").Path
+          $process = Start-Process -FilePath $exe -ArgumentList "--self-test" -PassThru -Wait
+          if ($process.ExitCode -ne 0) {
+            throw "OMNI packaged runtime self-test failed with exit code $($process.ExitCode)"
+          }
+          Write-Host "OMNI packaged runtime self-test passed"
       - name: Smoke test packaged OMNI GUI on Windows
         shell: pwsh
         run: |
