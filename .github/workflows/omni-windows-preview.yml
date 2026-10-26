@@ -114,7 +114,8 @@ jobs:
           $exe = (Resolve-Path "dist/OMNI-Preview.exe").Path
           $checks = @(
             @{ Name = "runtime"; Argument = "--self-test" },
-            @{ Name = "gui"; Argument = "--gui-self-test" }
+            @{ Name = "gui"; Argument = "--gui-self-test" },
+            @{ Name = "app"; Argument = "--app-self-test" }
           )
           foreach ($check in $checks) {
             $env:OMNI_SELF_TEST_REPORT = Join-Path $env:RUNNER_TEMP ("omni-" + $check.Name + "-self-test.json")
