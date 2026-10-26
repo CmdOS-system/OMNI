@@ -39,7 +39,7 @@ def inspect_preview(path):
             "notice": "Read-only format identification; not compatibility or sandbox validation."}
 
 
-def main():
+def main(*, smoke_test=False):
     from omni.catalog import add_inspection, backup_catalog, load_catalog, remove_inspection
     from omni.process_manager import NativeProcessManager
     from omni.wsl2_discovery import discover_wsl2
@@ -505,6 +505,9 @@ def main():
     refresh_catalog()
     poll_catalog_scan()
     update_process_status()
+    if smoke_test:
+        # Exercise the complete desktop startup without leaving a GUI open.
+        window.after(1500, window.destroy)
     window.mainloop()
 
 
@@ -553,6 +556,8 @@ def _self_test_entrypoint(kind):
             packaged_self_test()
         elif kind == "gui":
             packaged_gui_self_test()
+        elif kind == "app":
+            main(smoke_test=True)
         else:
             raise ValueError("Unknown self-test kind")
         outcome = {"status": "passed", "kind": kind}
@@ -576,4 +581,6 @@ if __name__ == "__main__":
         sys.exit(_self_test_entrypoint("runtime"))
     if "--gui-self-test" in sys.argv[1:]:
         sys.exit(_self_test_entrypoint("gui"))
+    if "--app-self-test" in sys.argv[1:]:
+        sys.exit(_self_test_entrypoint("app"))
     main()
