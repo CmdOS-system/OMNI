@@ -508,5 +508,30 @@ def main():
     window.mainloop()
 
 
+def packaged_self_test():
+    """Validate imports and read-only inspection inside a frozen Windows build."""
+    from omni.catalog import load_catalog
+    from omni.process_manager import NativeProcessManager
+    from omni.windows_runtime import assess_native_windows
+    from omni.launch_coordinator import launch_with_recommended_runtime
+    from omni.library_health import check_catalog_integrity
+    from omni.wsl2_discovery import discover_wsl2
+    import sys
+
+    record = inspect_preview(sys.executable)
+    if record["format"] != "PE" or not record["sha256"]:
+        raise RuntimeError("OMNI executable inspection failed")
+    if not callable(load_catalog) or not callable(assess_native_windows):
+        raise RuntimeError("OMNI runtime imports failed")
+    if not callable(launch_with_recommended_runtime) or not callable(check_catalog_integrity):
+        raise RuntimeError("OMNI launcher imports failed")
+    if not callable(discover_wsl2) or not callable(NativeProcessManager):
+        raise RuntimeError("OMNI process and discovery imports failed")
+    return 0
+
+
 if __name__ == "__main__":
+    import sys
+    if "--self-test" in sys.argv[1:]:
+        sys.exit(packaged_self_test())
     main()
